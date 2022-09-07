@@ -1,13 +1,10 @@
 #general vulkan
-project(gvulkan)
+cmake_minimum_required(VERSION 3.24)
 
-find_package(Vulkan REQUIRED)
+project(gvk)
 
+add_subdirectory(glfw)
+set(GVK_GLFW_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/glfw/include CACHE INTERNAL "GVK_GLFW_INCLUDE")
 
-if(Vulkan_FOUND)
-    message(STATUS "vulkan has been found")
-    message(STATUS "vulkan include directory ${Vulkan_INCLUDE_DIRS}")
-    message(STATUS "vulkan library ${Vulkan_LIBRARIES}")
-else()
-    message(STATUS "fail to find vulkan")
-endif()
+add_subdirectory(src)
+add_subdirectory(test)
