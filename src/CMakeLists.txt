@@ -5,7 +5,7 @@ add_library(gvk ${GVK_HEADER} ${GVK_SOURCE})
 
 find_package(Vulkan REQUIRED)
 
-target_include_directories(gvk PRIVATE 
+target_include_directories(gvk PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR} 
     ${GVK_GLFW_INCLUDE}
     ${Vulkan_INCLUDE_DIRS})
