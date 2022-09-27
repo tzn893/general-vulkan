@@ -20,7 +20,7 @@ namespace gvk {
 		g_window->m_KeyState[(uint32)gvk_key] = action;
 	}
 
-	opt<ptr<Window>> Window::CreateWindow(uint32 width, uint32 height,const char* title) {
+	opt<ptr<Window>> Window::Create(uint32 width, uint32 height,const char* title) {
 		gvk_assert(g_window == nullptr);
 		
 		if (title == nullptr) {
@@ -34,7 +34,7 @@ namespace gvk {
 
 		GLFWwindow* window = glfwCreateWindow(width, height, title, nullptr, nullptr);
 		if (window == NULL) {
-			return nullopt;
+			return std::nullopt;
 		}
 		g_window = ptr<Window>(new Window(window, width, height));
 		return { g_window };

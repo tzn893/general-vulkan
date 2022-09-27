@@ -3,8 +3,11 @@
 
 namespace gvk {
 	VkResult CommandQueue::Submit(VkCommandBuffer* cmd_buffers, uint32 cmd_buffer_count,
-		const QueueSubmitSemaphoreInfo& semaphore_info, bool stall_for_host)
+		const SemaphoreInfo& semaphore_info, bool stall_for_host)
 	{
+		//reset the command queue's fence before submitting
+		vkResetFences(m_Device, 1, &m_Fence);
+
 		VkSubmitInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		info.pNext = nullptr;
@@ -43,8 +46,8 @@ namespace gvk {
 		return vkWaitForFences(m_Device, 1, &m_Fence, VK_TRUE, timeout);
 	}
 
-	VkResult CommandQueue::SubmitTemporalCommand(function<void(VkCommandBuffer)> command, 
-		const QueueSubmitSemaphoreInfo& semaphore_info, bool stall_for_host)
+	VkResult CommandQueue::SubmitTemporalCommand(std::function<void(VkCommandBuffer)> command, 
+		const SemaphoreInfo& semaphore_info, bool stall_for_host)
 	{
 		if (m_TemporalBufferPool == NULL) 
 		{
@@ -92,7 +95,7 @@ namespace gvk {
 		vkrs = vkEndCommandBuffer(cmd_buffer);
 		if (vkrs != VK_SUCCESS) return vkrs;
 
-		Submit(&cmd_buffer, 1, semaphore_info, stall_for_host);
+		return Submit(&cmd_buffer, 1, semaphore_info, stall_for_host);
 	}
 
 	CommandQueue::~CommandQueue()
@@ -116,7 +119,7 @@ namespace gvk {
 		VkCommandBuffer cmd_buffer;
 		if (vkAllocateCommandBuffers(m_Device, &info, &cmd_buffer) != VK_SUCCESS) {
 			//TODO log message
-			return nullopt;
+			return std::nullopt;
 		}
 		return cmd_buffer;
 	}

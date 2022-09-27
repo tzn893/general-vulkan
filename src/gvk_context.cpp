@@ -13,7 +13,7 @@ struct GvkExpectStrEqualTo {
 };
 
 
-static inline void AddNotRepeatedElement(vector<const char*>& target, const char* name) {
+static inline void AddNotRepeatedElement(std::vector<const char*>& target, const char* name) {
 	if (std::find_if(target.begin(), target.end(), GvkExpectStrEqualTo(name)) != target.end()) {
 		target.push_back(name);
 	}
@@ -21,7 +21,7 @@ static inline void AddNotRepeatedElement(vector<const char*>& target, const char
 
 namespace gvk {
 	opt<ptr<gvk::Context>> Context::CreateContext(const char* app_name, GVK_VERSION app_version,
-		uint32 api_version, ptr<Window> window, string* error) {
+		uint32 api_version, ptr<Window> window, std::string* error) {
 		gvk_assert(window != nullptr);
 
 		ptr<Context> context(new Context());
@@ -32,7 +32,7 @@ namespace gvk {
 		context->m_AppInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 		context->m_AppInfo.apiVersion = api_version;
 
-		vector<VkExtensionProperties> ext_props;
+		std::vector<VkExtensionProperties> ext_props;
 		//find all supported extensions
 		{
 			uint32 ext_count;
@@ -45,7 +45,7 @@ namespace gvk {
 			}
 		}
 
-		vector<VkLayerProperties> lay_props;
+		std::vector<VkLayerProperties> lay_props;
 		{
 			uint32 lay_count;
 			vkEnumerateInstanceLayerProperties(&lay_count, nullptr);
@@ -64,8 +64,8 @@ namespace gvk {
 			auto glfw_exts = glfwGetRequiredInstanceExtensions(&glfw_ext_count);
 			for (uint32 i = 0; i < glfw_ext_count; i++) {
 				if (!context->m_SupportedInstanceExtensions.count(glfw_exts[i])) {
-					if (error) *error = "gvk : glfw required extension " + (string)glfw_exts[i] + " is not supported";
-					return nullopt;
+					if (error) *error = "gvk : glfw required extension " + (std::string)glfw_exts[i] + " is not supported";
+					return std::nullopt;
 				}
 				context->m_RequiredInstanceExtensions.push_back(glfw_exts[i]);
 			}
@@ -77,11 +77,11 @@ namespace gvk {
 	bool Context::AddInstanceExtension(GVK_INSTANCE_EXTENSION e_extension) {
 		gvk_assert(e_extension < GVK_INSTANCE_EXTENSION_COUNT);
 
-		static vector<const char*> target_extensions[GVK_INSTANCE_EXTENSION_COUNT] = {
+		static std::vector<const char*> target_extensions[GVK_INSTANCE_EXTENSION_COUNT] = {
 			{VK_EXT_DEBUG_UTILS_EXTENSION_NAME},//GVK_INSTANCE_EXTENSION_DEBUG
 		};
 
-		vector<const char*>& target = target_extensions[e_extension];
+		std::vector<const char*>& target = target_extensions[e_extension];
 		//for removing added extensions
 		for(auto extension : target) {
 			//extension is not supported
@@ -114,7 +114,7 @@ namespace gvk {
 		return true;
 	}
 
-	bool Context::InitializeInstance(string* error)
+	bool Context::InitializeInstance(std::string* error)
 {
 		VkInstanceCreateInfo inst_create{};
 		inst_create.pApplicationInfo = &m_AppInfo;
@@ -153,7 +153,7 @@ namespace gvk {
 			queue_idx++;
 		}
 		if (queue_idx >= m_RequiredQueueInfos.size()) {
-			return nullopt;
+			return std::nullopt;
 		}
 		return queue_idx;
 	}
@@ -164,16 +164,15 @@ namespace gvk {
 		QueueInfo info = m_RequiredQueueInfos[idx];
 		VkQueue queue = NULL;
 		vkGetDeviceQueue(m_Device, info.family_index, info.queue_index, &queue);
-		if (queue == NULL) return nullopt;
+		if (queue == NULL) return std::nullopt;
 
 		//create a fence for queue for cpu synchronization
 		VkFence fence;
-		VkFenceCreateInfo fence_info{};
-		fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fence_info.pNext = nullptr;
-		fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-		if (vkCreateFence(m_Device,&fence_info,nullptr,&fence) != VK_SUCCESS) {
-			return nullopt;
+		if (auto v = CreateFence(VK_FENCE_CREATE_SIGNALED_BIT);v.has_value()) {
+			fence = v.value();
+		}
+		else {
+			return std::nullopt;
 		}
 
 		m_RequiredQueueInfos.erase(m_RequiredQueueInfos.begin() + idx);
@@ -200,7 +199,7 @@ namespace gvk {
 		}
 	}
 
-	opt<VkSemaphore> Context::CreateSemaphore()
+	opt<VkSemaphore> Context::CreateVkSemaphore()
 	{
 		VkSemaphoreCreateInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -209,7 +208,7 @@ namespace gvk {
 		VkSemaphore semaphore;
 		if (vkCreateSemaphore(m_Device, &info, nullptr, &semaphore) != VK_SUCCESS) 
 		{
-			return nullopt;
+			return std::nullopt;
 		}
 		return semaphore;
 	}
@@ -238,7 +237,7 @@ namespace gvk {
 	
 
 	//this function should not be called more than once
-	bool Context::InitializeDevice(const GVK_DEVICE_CREATE_INFO& create, string* error) {
+	bool Context::InitializeDevice(const GVK_DEVICE_CREATE_INFO& create, std::string * error) {
 		gvk_assert(m_Device == NULL);
 		gvk_assert(m_VkInstance != NULL);
 
@@ -252,14 +251,14 @@ namespace gvk {
 		//find all physical device
 		uint32 phy_device_count;
 		vkEnumeratePhysicalDevices(m_VkInstance, &phy_device_count, nullptr);
-		vector<VkPhysicalDevice> phy_devices(phy_device_count);
+		std::vector<VkPhysicalDevice> phy_devices(phy_device_count);
 		vkEnumeratePhysicalDevices(m_VkInstance, &phy_device_count, phy_devices.data());
 
 		//record physical device's score,pick the device with highest score
 		uint32 curr_device_score = 0;
 		
 		//currently chosen device's queue create info
-		vector<VkDeviceQueueCreateInfo> curr_queue_create;
+		std::vector<VkDeviceQueueCreateInfo> curr_queue_create;
 		
 		for (auto phy_device : phy_devices) {
 			PhysicalDevicePropertiesAndFeatures device_prop_feat;
@@ -292,7 +291,7 @@ namespace gvk {
 			
 			//try to create command queues
 			auto queue_family_props = device_prop_feat.QueueFamilyProperties();
-			vector<uint32> required_queue_count_every_family(queue_family_props.size(),0);
+			std::vector<uint32> required_queue_count_every_family(queue_family_props.size(),0);
 			bool queue_req_satisfied = false;
 			for (auto& req : create.required_queues) {
 				queue_req_satisfied = false;
@@ -331,10 +330,10 @@ namespace gvk {
 
 		//create command queues from device
 		auto qf_props = m_DevicePropertiesFeature.QueueFamilyProperties();
-		vector<VkDeviceQueueCreateInfo> device_queue_create(qf_props.size(), 
+		std::vector<VkDeviceQueueCreateInfo> device_queue_create(qf_props.size(), 
 			VkDeviceQueueCreateInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,NULL}
 		);
-		vector<vector<float>>			priority_buffer(qf_props.size());
+		std::vector<std::vector<float>>			priority_buffer(qf_props.size());
 		for (auto& req : create.required_queues) {
 			for (uint32 qfidx = 0; qfidx < qf_props.size();qfidx++) {
 				if ((req.flags & qf_props[qfidx].props.queueFlags) == req.flags) {
@@ -394,8 +393,8 @@ namespace gvk {
 				m_PresentQueue = present_queue.value();
 			}
 			else {
-				*error = "fail to get present queue (family index " + to_string(info.family_index) + "," +
-					", queue index " + to_string(info.queue_index) + ")";
+				*error = "fail to get present queue (family index " + std::to_string(info.family_index) + "," +
+					", queue index " + std::to_string(info.queue_index) + ")";
 				return false;
 			}
 		}
@@ -436,7 +435,7 @@ namespace gvk {
 	
 		//queue family properties of the device
 		uint32 qf_count;
-		vector<VkQueueFamilyProperties> qfps;
+		std::vector<VkQueueFamilyProperties> qfps;
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &qf_count, nullptr);
 		qfps.resize(qf_count);
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &qf_count, qfps.data());
@@ -493,7 +492,7 @@ namespace gvk {
 			queue_idx = v.value();
 		}
 		else {
-			return nullopt;
+			return std::nullopt;
 		}
 
 		return ConsumePrequiredQueue(queue_idx);
@@ -508,13 +507,13 @@ namespace gvk {
 		info.pNext = nullptr;
 		VkCommandPool cmd_pool;
 		if (vkCreateCommandPool(m_Device, &info, nullptr, &cmd_pool) != VK_SUCCESS) {
-			return nullopt;
+			return std::nullopt;
 		}
 
 		return ptr<CommandPool>(new CommandPool(cmd_pool, queue->QueueFamily(),m_Device));
 	}
 
-	bool Context::CreateSwapChain(Window* window,VkFormat rt_format,string* error) {
+	bool Context::CreateSwapChain(Window* window,VkFormat rt_format,std::string* error) {
 		gvk_assert(window != NULL);
 		gvk_assert(m_SwapChain == NULL);
 
@@ -539,7 +538,7 @@ namespace gvk {
 			//get surface's supported formats
 			uint32 format_count;
 			vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhyDevice, m_Surface, &format_count, nullptr);
-			vector<VkSurfaceFormatKHR> surface_formats(format_count);
+			std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
 			vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhyDevice, m_Surface, &format_count, surface_formats.data());
 
 			VkColorSpaceKHR rt_color_space = VK_COLOR_SPACE_MAX_ENUM_KHR;
@@ -595,7 +594,7 @@ namespace gvk {
 			//one image one semaphore
 			m_ImageAcquireSemaphore.resize(m_BackBufferCount);
 			for (uint32 i = 0; i != m_BackBufferCount;i++) {
-				if (auto s = CreateSemaphore();s.has_value()) 
+				if (auto s = CreateVkSemaphore();s.has_value()) 
 				{
 					m_ImageAcquireSemaphore[i] = s.value();
 				}
@@ -605,19 +604,17 @@ namespace gvk {
 					return false;
 				}
 			}
-
-
-
 		}
 
 		return true;
 	}
 
-	bool Context::UpdateSwapChain(Window* window, string* error)
+	bool Context::UpdateSwapChain(Window* window, std::string* error)
 	{
 		gvk_assert(m_Surface != NULL);
 		// Reset frame index every time swap chain is updated
 		m_CurrentFrameIndex = 0;
+		m_CurrentBackBufferImageIndex = UINT32_MAX;
 
 		VkSurfaceCapabilitiesKHR surface_capability{};
 		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhyDevice, m_Surface, &surface_capability);
@@ -689,16 +686,61 @@ namespace gvk {
 	
 
 
-	opt<tuple<VkImage, VkImageView, VkSemaphore>> Context::AcquireNextImage(int64_t _timeout,VkFence fence) {
+	opt<std::tuple<VkImage, VkImageView, VkSemaphore>> Context::AcquireNextImage(int64_t _timeout,VkFence fence) {
 		gvk_assert(m_SwapChain != NULL);
 		uint32 timeout = _timeout < 0 ? UINT64_MAX : _timeout;
 		uint32 image_index;
 		if (vkAcquireNextImageKHR(m_Device, m_SwapChain, timeout, m_ImageAcquireSemaphore[m_BackBufferCount],
 			fence, &image_index) != VK_SUCCESS) 
 		{
-			return nullopt;
+			return std::nullopt;
 		}
-		return make_tuple(m_BackBuffers[image_index],m_BackBufferViews[image_index],m_ImageAcquireSemaphore[m_CurrentFrameIndex]);
+		m_CurrentBackBufferImageIndex = image_index;
+		return std::make_tuple(m_BackBuffers[image_index],m_BackBufferViews[image_index],m_ImageAcquireSemaphore[m_CurrentFrameIndex]);
+	}
+
+	VkResult Context::Present(const SemaphoreInfo& semaphore)
+	{
+		// If the back buffer image index is greater than the back buffer count
+		// Which means that the swap chain is presented without acquiring a image before
+		// This should not happen !
+		gvk_assert(m_CurrentBackBufferImageIndex < m_BackBufferCount);
+
+		VkResult vkrs;
+
+		VkPresentInfoKHR present_info{};
+		present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		present_info.pNext = nullptr;
+		present_info.pSwapchains = &m_SwapChain;
+		present_info.swapchainCount = 1;
+		present_info.pImageIndices = &m_CurrentBackBufferImageIndex;
+		present_info.pWaitSemaphores = semaphore.wait_semaphores.data();
+		present_info.waitSemaphoreCount = semaphore.wait_semaphores.size();
+		present_info.pResults = &vkrs;
+		
+		VkResult present_rs = vkQueuePresentKHR(m_PresentQueue->m_CommandQueue, &present_info);
+
+		m_CurrentFrameIndex = (m_CurrentFrameIndex + 1) % m_BackBufferCount;
+		if (vkrs != VK_SUCCESS) return vkrs;
+		return present_rs;
+	}
+
+	opt<VkFence> Context::CreateFence(VkFenceCreateFlags flags)
+	{
+		VkFenceCreateInfo fence_info{};
+		fence_info.pNext = nullptr;
+		fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fence_info.flags = flags;
+		VkFence fence;
+		if (!vkCreateFence(m_Device, &fence_info, nullptr, &fence) != VK_SUCCESS) {
+			return std::nullopt;
+		}
+		return fence;
+	}
+
+	uint32 Context::CurrentFrameIndex()
+	{
+		return m_CurrentFrameIndex;
 	}
 }
 

@@ -34,10 +34,10 @@ struct GVK_DEVICE_CREATE_INFO {
 		uint32  count;
 		float   priority;
 	};
-	vector<QueueRequireInfo> required_queues;
+	std::vector<QueueRequireInfo> required_queues;
 	void RequireQueue(VkFlags queue_flags, uint32 count, float priority = 1.0f);
 
-	vector<const char*> required_extensions;
+	std::vector<const char*> required_extensions;
 	void AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
 	GVK_DEVICE_CREATE_INFO() {}
@@ -49,13 +49,11 @@ namespace gvk {
 		friend class CommandQueue;
 	public:
 		static opt<ptr<Context>> CreateContext(const char* app_name,GVK_VERSION app_version,
-			uint32 api_version,ptr<Window> window, string* error);
+			uint32 api_version,ptr<Window> window, std::string* error);
 		
 		bool AddInstanceExtension(GVK_INSTANCE_EXTENSION);
 		bool AddInstanceLayer(GVK_LAYER layer);
-		bool InitializeInstance(string* error);
-		
-		//a present queue will be created by default
+		bool InitializeInstance(std::string* error);
 		
 		/// <summary>
 		/// Initialize the device in the context
@@ -64,7 +62,7 @@ namespace gvk {
 		/// <param name="create">the info structure necessary for create of device</param>
 		/// <param name="error">if the initiailization fails return error message</param>
 		/// <returns>if the initialization succeed</returns>
-		bool InitializeDevice(const GVK_DEVICE_CREATE_INFO& create, string* error);
+		bool InitializeDevice(const GVK_DEVICE_CREATE_INFO& create, std::string* error);
 
 		/// <summary>
 		/// create the swap chain and present queue
@@ -73,7 +71,7 @@ namespace gvk {
 		/// <param name="img_format"></param>
 		/// <param name="error"></param>
 		/// <returns></returns>
-		bool CreateSwapChain(Window* window,VkFormat img_format,string* error);
+		bool CreateSwapChain(Window* window,VkFormat img_format,std::string* error);
 		
 		/// <summary>
 		/// should be called every time window is resized
@@ -81,7 +79,7 @@ namespace gvk {
 		/// <param name="window"></param>
 		/// <param name="error"></param>
 		/// <returns></returns>
-		bool UpdateSwapChain(Window* window,string* error);
+		bool UpdateSwapChain(Window* window,std::string* error);
 
 		/// <summary>
 		/// Create a command queue from pre-required command queues.
@@ -112,10 +110,20 @@ namespace gvk {
 		/// Create a semaphore for synchronization between queues
 		/// </summary>
 		/// <returns>The created semaphore</returns>
-		opt<VkSemaphore>  CreateSemaphore();
+		opt<VkSemaphore>  CreateVkSemaphore();
 
-		opt<VkFence> CreateFence();
+		/// <summary>
+		/// Create a fence from current device.Return nullopt if creation fails
+		/// </summary>
+		/// <param name="flags">the flags for the fence</param>
+		/// <returns>the created fence</returns>
+		opt<VkFence> CreateFence(VkFenceCreateFlags flags);
 
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <returns></returns>
 		uint32 CurrentFrameIndex();
 
 		/// <summary>
@@ -126,9 +134,15 @@ namespace gvk {
 		/// <param name="timeout">The timeout time wait for this operation.If timeout is less than 0,host will wait for this forever</param>
 		/// <param name="fence">The fence to signal after it finishes</param>
 		/// <returns>the acquired back buffer image,the back buffer's view,the semaphore to wait</returns>
-		opt<tuple<VkImage, VkImageView, VkSemaphore>> AcquireNextImage(int64_t timeout = -1,VkFence fence = NULL);
+		opt<std::tuple<VkImage, VkImageView, VkSemaphore>> AcquireNextImage(int64_t timeout = -1,VkFence fence = NULL);
 
-		void Present();
+
+		/// <summary>
+		/// Present a back buffer
+		/// </summary>
+		/// <param name="semaphore">The semaphore to wait before the presentation</param>
+		/// <returns> Return VK_SUCCESS if success, otherwise return corresponding error message</returns>
+		VkResult Present(const SemaphoreInfo& semaphore);
 	
 		~Context();
 	private:
@@ -154,14 +168,14 @@ namespace gvk {
 			VkPhysicalDeviceRayTracingPipelinePropertiesKHR raytracing_prop;
 			VkPhysicalDeviceRayTracingPipelineFeaturesKHR raytracing_feature;
 
-			vector<QueueFamilyInfo> queue_family_prop;
+			std::vector<QueueFamilyInfo> queue_family_prop;
 			//add next 
 			struct Header {
 				VkStructureType    sType;
 				void* pNext;
 			}* prop_header,* feat_header;
 
-			vector<VkExtensionProperties> supported_extensions;
+			std::vector<VkExtensionProperties> supported_extensions;
 
 		public:
 			void RequireRayTracing();
@@ -183,10 +197,10 @@ namespace gvk {
 
 		Context();
 
-		vector<const char*> m_RequiredInstanceExtensions;
-		vector<const char*> m_RequiredInstanceLayers;
-		unordered_set<string> m_SupportedInstanceExtensions;
-		unordered_set<string> m_SupportedInstanceLayers;
+		std::vector<const char*> m_RequiredInstanceExtensions;
+		std::vector<const char*> m_RequiredInstanceLayers;
+		std::unordered_set<std::string> m_SupportedInstanceExtensions;
+		std::unordered_set<std::string> m_SupportedInstanceLayers;
 		VkApplicationInfo m_AppInfo;
 		ptr<Window> m_Window;
 
@@ -196,7 +210,7 @@ namespace gvk {
 		VkPhysicalDevice m_PhyDevice = NULL;
 		PhysicalDevicePropertiesAndFeatures m_DevicePropertiesFeature;
 		
-		vector<QueueInfo> m_RequiredQueueInfos;
+		std::vector<QueueInfo> m_RequiredQueueInfos;
 
 		VkSwapchainCreateInfoKHR m_SwapChainCreateInfo;
 		ptr<CommandQueue> m_PresentQueue = NULL;
@@ -204,16 +218,19 @@ namespace gvk {
 		VkSwapchainKHR m_SwapChain = NULL;
 		// This semaphore will be created right after the swap chain is created
 		// It will be signaled after the image acquired from swap chain is ready 
-		vector<VkSemaphore>    m_ImageAcquireSemaphore;
+		std::vector<VkSemaphore>    m_ImageAcquireSemaphore;
 		// Will be initialized after swap chain is created 
 		// Increment by 1 after a image is presented
 		uint32  m_CurrentFrameIndex;
+		// Back buffer image index acquired from swap chain
+		// Will be utilized when presenting
+		uint32 m_CurrentBackBufferImageIndex = UINT32_MAX;
 		
 		VkSurfaceKHR m_Surface = NULL;
 		//TODO : set back buffer count dynamically by surface's capacity
 		uint32 m_BackBufferCount = 3;
-		vector<VkImage> m_BackBuffers;
-		vector<VkImageView> m_BackBufferViews;
+		std::vector<VkImage> m_BackBuffers;
+		std::vector<VkImageView> m_BackBufferViews;
 
 		opt<uint32> FindSuitableQueueIndex(VkFlags flags,float priority);
 		opt<ptr<CommandQueue>> ConsumePrequiredQueue(uint32 idx);

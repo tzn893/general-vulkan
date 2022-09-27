@@ -3,12 +3,10 @@
 #include <algorithm>
 #include <stdint.h>
 #include <memory>
-#include <vector>
 #include <optional>
 #include <vector>
 #include <unordered_set>
 #include <string>
-using namespace std;
 
 using uint32 = uint32_t;
 using uint16 = uint16_t;
@@ -37,7 +35,7 @@ namespace gvk {
 			data(data), start(start), end(end) {
 			gvk_assert(end >= start);
 		}
-		View(const vector<T>& arr) :data(arr.data()), start(0), end(arr.size()) {}
+		View(const std::vector<T>& arr) :data(arr.data()), start(0), end(arr.size()) {}
 		View(const View<T>& v) {
 			data = v.data; start = v.start; end = v.end;
 		}

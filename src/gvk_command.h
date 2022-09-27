@@ -23,19 +23,20 @@ namespace gvk {
 	};
 
 
-	class QueueSubmitSemaphoreInfo {
+	class SemaphoreInfo {
 	private:
 		friend class CommandQueue;
-		vector<VkSemaphore> wait_semaphores;
-		vector<VkPipelineStageFlags> wait_semaphore_stages;
-		vector<VkSemaphore> signal_semaphores;
+		friend class Context;
+		std::vector<VkSemaphore> wait_semaphores;
+		std::vector<VkPipelineStageFlags> wait_semaphore_stages;
+		std::vector<VkSemaphore> signal_semaphores;
 	public:
-		QueueSubmitSemaphoreInfo& Wait(VkSemaphore wait_semaphore, VkPipelineStageFlags stage) {
+		SemaphoreInfo& Wait(VkSemaphore wait_semaphore, VkPipelineStageFlags stage) {
 			wait_semaphores.push_back(wait_semaphore);
 			wait_semaphore_stages.push_back(stage);
 			return *this;
 		}
-		QueueSubmitSemaphoreInfo& Signal(VkSemaphore signal_semaphore) {
+		SemaphoreInfo& Signal(VkSemaphore signal_semaphore) {
 			signal_semaphores.push_back(signal_semaphore);
 			return *this;
 		}
@@ -49,14 +50,14 @@ namespace gvk {
 		uint32 QueueFamily() const { return m_QueueFamilyIndex; }
 
 		VkResult Submit(VkCommandBuffer* cmd_buffers,uint32 cmd_buffer_count,
-			const QueueSubmitSemaphoreInfo& info,
+			const SemaphoreInfo& info,
 			bool stall_for_host = false);
 
 		VkResult StallForHost(int64_t timeout = -1);
 		
-		//this function is handy for command buffers only excuted once. e.g.: an upload resources
-		VkResult SubmitTemporalCommand(function<void(VkCommandBuffer)> command,
-			const QueueSubmitSemaphoreInfo& info,bool stall_for_host);
+		//this function is handy for command buffers only excuted once. e.g.: commands for uploading resources
+		VkResult SubmitTemporalCommand(std::function<void(VkCommandBuffer)> command,
+			const SemaphoreInfo& info,bool stall_for_host);
 		
 		~CommandQueue();
 	private:

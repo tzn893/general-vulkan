@@ -15,7 +15,7 @@ enum GVK_KEY {
 namespace gvk {
 	class Window {
 	public:
-		static opt<ptr<gvk::Window>> CreateWindow(uint32 width,uint32 height,const char* title);
+		static opt<ptr<gvk::Window>> Create(uint32 width,uint32 height,const char* title);
 
 		GLFWwindow* GetWindow();
 		
