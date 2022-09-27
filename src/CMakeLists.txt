@@ -21,3 +21,6 @@ target_link_libraries(gvk glfw ${Vulkan_LIBRARIES})
 # endif()
 
 # message(STATUS "GLSLC excutable path ${Vulkan_GLSLC_EXECUTABLE}")
+add_compile_definitions(GLSLC_EXECUATABLE="${Vulkan_GLSLC_EXECUTABLE}")
+
+

@@ -129,7 +129,7 @@ namespace gvk {
 
 		if (vkCreateInstance(&inst_create,nullptr,&m_VkInstance) != VK_SUCCESS) {
 			//TODO log error message
-			*error = "gvk : fail to create vulkan instance";
+			if (error != nullptr) *error = "gvk : fail to create vulkan instance";
 			return false;
 		}
 		
@@ -325,7 +325,7 @@ namespace gvk {
 		}
 
 		if (m_PhyDevice == NULL) {
-			if (!error) *error = "no compatible physical device";
+			if (error != nullptr) *error = "no compatible physical device";
 		}
 
 		//create command queues from device
@@ -378,7 +378,7 @@ namespace gvk {
 		device_create.pEnabledFeatures = nullptr;
 
 		if (vkCreateDevice(m_PhyDevice, &device_create, nullptr, &m_Device) != VK_SUCCESS) {
-			*error = "gvk : fail to create device";
+			if (error != nullptr) *error = "gvk : fail to create device";
 			return false;
 		}
 
@@ -393,13 +393,13 @@ namespace gvk {
 				m_PresentQueue = present_queue.value();
 			}
 			else {
-				*error = "fail to get present queue (family index " + std::to_string(info.family_index) + "," +
+				if (error != nullptr) *error = "fail to get present queue (family index " + std::to_string(info.family_index) + "," +
 					", queue index " + std::to_string(info.queue_index) + ")";
 				return false;
 			}
 		}
 		else {
-			*error = "fail to create present queue for device";
+			if (error != nullptr) *error = "fail to create present queue for device";
 			return false;
 		}
 
@@ -528,7 +528,7 @@ namespace gvk {
 
 			VkResult res = vkCreateWin32SurfaceKHR(m_VkInstance, &win_surface, nullptr, &m_Surface);
 			if (res != VK_SUCCESS) {
-				*error = "gvk : fail to create windows surface";
+				if (error != nullptr) *error = "gvk : fail to create windows surface";
 				return false;
 			}
 		}
@@ -549,7 +549,7 @@ namespace gvk {
 				}
 			}
 			if (rt_color_space == VK_COLOR_SPACE_MAX_ENUM_KHR) {
-				*error = "gvk : format is not supported by swap chain";
+				if (error != nullptr) *error = "gvk : format is not supported by swap chain";
 				return false;
 			}
 
@@ -558,7 +558,7 @@ namespace gvk {
 			vkGetPhysicalDeviceSurfaceSupportKHR(m_PhyDevice, m_PresentQueueFamilyIndex,
 				m_Surface,&present_queue_supported);
 			if (present_queue_supported != VK_TRUE) {
-				*error = "gvk : present queue is not supported";
+				if (error != nullptr) *error = "gvk : present queue is not supported";
 				return false;
 			}
 
@@ -600,7 +600,7 @@ namespace gvk {
 				}
 				else 
 				{
-					*error = "gvk: fail to create semaphore for back buffers";
+					if (error != nullptr) *error = "gvk: fail to create semaphore for back buffers";
 					return false;
 				}
 			}
@@ -641,7 +641,7 @@ namespace gvk {
 		m_SwapChainCreateInfo.preTransform = swap_chain_transform;
 
 		if (!vkCreateSwapchainKHR(m_Device, &m_SwapChainCreateInfo, nullptr, &m_SwapChain)) {
-			*error = "gvk : fail to create swap chain";
+			if (error != nullptr) *error = "gvk : fail to create swap chain";
 			return false;
 		}
 
