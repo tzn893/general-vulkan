@@ -31,6 +31,7 @@ namespace gvk {
 			gvk_assert(name != nullptr);
 			this->name.push_back(name);
 			this->value.push_back(value);
+			return *this;
 		}
 	};
 	class Shader {
@@ -45,9 +46,15 @@ namespace gvk {
 			const char** search_pathes,uint32 search_path_count,
 			std::string* error);
 
-		std::tuple<void*, uint64_t> ShaderByteCode();
-
 		VkShaderStageFlagBits GetStage();
+
+		opt<VkShaderModule> CreateShaderModule(VkDevice device);
+		opt<VkShaderModule>	GetShaderModule();
+
+		opt<std::vector<SpvReflectDescriptorBinding*>> GetDescriptorBindings();
+		opt<std::vector<SpvReflectDescriptorSet*>>     GetDescriptorSets();
+		opt<std::vector<SpvReflectInterfaceVariable*>> GetInputVariables();
+		opt<std::vector<SpvReflectInterfaceVariable*>> GetOutputVariables();
 
 		~Shader();
 
@@ -59,7 +66,9 @@ namespace gvk {
 		VkShaderStageFlagBits m_Stage;
 		void*  m_ByteCode;
 		uint64_t m_ByteCodeSize;
-		spv_reflect::ShaderModule m_ShaderModule;
+		spv_reflect::ShaderModule m_ReflectShaderModule;
+		VkShaderModule m_ShaderModule;
+		VkDevice	   m_Device;
 	};
 
 }

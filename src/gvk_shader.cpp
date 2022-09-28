@@ -144,7 +144,8 @@ namespace gvk {
 		}
 
 		ptr<Shader> shader(new Shader(data, code_file_len, (VkShaderStageFlagBits)shader_module.GetShaderStage()));
-		shader->m_ShaderModule = std::move(shader_module);
+		shader->m_ReflectShaderModule = std::move(shader_module);
+		shader->m_ShaderModule = NULL;
 		return shader;
 	}
 
@@ -167,11 +168,9 @@ namespace gvk {
 
 	Shader::~Shader() {
 		free(m_ByteCode);
-	}
-
-	std::tuple<void*, uint64_t> Shader::ShaderByteCode()
-	{
-		return std::make_tuple(m_ByteCode, m_ByteCodeSize);
+		if (m_ShaderModule != NULL) {
+			vkDestroyShaderModule(m_Device, m_ShaderModule, nullptr);
+		}
 	}
 
 	VkShaderStageFlagBits Shader::GetStage()
@@ -179,4 +178,63 @@ namespace gvk {
 		return m_Stage;
 	}
 
+	opt<VkShaderModule> Shader::CreateShaderModule(VkDevice device) {
+		//this function should not be called once
+		gvk_assert(m_ShaderModule == NULL);
+		
+		VkShaderModuleCreateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		info.pNext = NULL;
+		info.pCode = (uint32_t*)m_ByteCode;
+		info.codeSize = m_ByteCodeSize;
+		info.flags = 0;
+		
+		if (vkCreateShaderModule(device, &info, nullptr, &m_ShaderModule) == VK_SUCCESS) {
+			m_Device = device;
+			return m_ShaderModule;
+		}
+		return std::nullopt;
+	}
+
+	opt<VkShaderModule>	Shader::GetShaderModule() {
+		//we should not return any null value
+		if (m_ShaderModule == NULL) return std::nullopt;
+		return m_ShaderModule;
+	}
+
+	template<typename T,typename Enumerator>
+	opt<std::vector<T*>> GetDataFromShaderModule(const spv_reflect::ShaderModule& shader_module, Enumerator enumerator) {
+		uint32 count = 0;
+		if ((shader_module.*enumerator)(&count,nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
+			return std::nullopt;
+		}
+		std::vector<T*> values(count);
+		gvk_assert((shader_module.*enumerator)(&count, values.data()) == SPV_REFLECT_RESULT_SUCCESS);
+
+		return std::move(values);
+	}
+
+	opt<std::vector<SpvReflectDescriptorBinding*>> Shader::GetDescriptorBindings()
+	{
+		return GetDataFromShaderModule<SpvReflectDescriptorBinding>
+			(m_ReflectShaderModule, &spv_reflect::ShaderModule::EnumerateDescriptorBindings);
+	}
+
+	opt<std::vector<SpvReflectDescriptorSet*>> Shader::GetDescriptorSets()
+	{
+		return GetDataFromShaderModule<SpvReflectDescriptorSet>
+			(m_ReflectShaderModule, &spv_reflect::ShaderModule::EnumerateDescriptorSets);
+	}
+
+	opt<std::vector<SpvReflectInterfaceVariable*>> Shader::GetInputVariables()
+	{
+		return GetDataFromShaderModule<SpvReflectInterfaceVariable>
+			(m_ReflectShaderModule, &spv_reflect::ShaderModule::EnumerateInputVariables);
+	}
+
+	opt<std::vector<SpvReflectInterfaceVariable*>> Shader::GetOutputVariables()
+	{
+		return GetDataFromShaderModule<SpvReflectInterfaceVariable>
+			(m_ReflectShaderModule, &spv_reflect::ShaderModule::EnumerateOutputVariables);
+	}
 }
