@@ -50,6 +50,9 @@ namespace fs = std::filesystem;
 
 namespace gvk {
 
+	Shader::Shader(void* byte_code, uint64_t byte_code_size, VkShaderStageFlagBits stage):m_ByteCode(byte_code),
+		m_ByteCodeSize(byte_code_size),m_Stage(stage),m_Device(NULL),m_ShaderModule(NULL) {}
+
 	static opt<std::string> SearchUnderPathes(const char* file, const char** search_pathes, uint32 search_path_count) {
 		fs::path p(file);
 		bool found = true;
@@ -80,9 +83,8 @@ namespace gvk {
 		const char** search_pathes, uint32 search_path_count, 
 		std::string* error)
 	{
-		
 		static std::string shader_stage_name_table[GVK_SHADER_STAGE_CALLABLE + 1] = {
-			"vert","frag","tesc","tese","geom","comp","comp","comp","comp","comp","comp","comp","comp","comp"
+			"vert","tesc","tese","geom","frag","comp","comp","comp","comp","comp","comp","comp","comp","comp"
 		};
 
 		std::string input;
@@ -95,7 +97,7 @@ namespace gvk {
 		}
 
 		std::string output = input + ".spv";
-		std::string options = "-fshader-stage=vert" + shader_stage_name_table[stage] + " " + input + " -o " + output;
+		std::string options = " -fshader-stage=" + shader_stage_name_table[stage] + " " + input + " -o " + output;
 		//add macros to glslc
 		for (uint32 i = 0; i < macros.name.size();i++) {
 			options += " -D" + std::string(macros.name[i]);
@@ -133,6 +135,7 @@ namespace gvk {
 		}
 
 		uint64_t code_file_len = binary_code_file.tellg();
+		binary_code_file.seekg(0, std::ios::beg);
 		char* data = (char*)malloc(code_file_len);
 		binary_code_file.read(data, code_file_len);
 
@@ -236,5 +239,11 @@ namespace gvk {
 	{
 		return GetDataFromShaderModule<SpvReflectInterfaceVariable>
 			(m_ReflectShaderModule, &spv_reflect::ShaderModule::EnumerateOutputVariables);
+	}
+
+
+	opt<std::vector<SpvReflectBlockVariable*>>	Shader::GetPushConstants() {
+		return GetDataFromShaderModule<SpvReflectBlockVariable>
+			(m_ReflectShaderModule, &spv_reflect::ShaderModule::EnumeratePushConstantBlocks);
 	}
 }

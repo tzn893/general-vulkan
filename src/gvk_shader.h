@@ -51,10 +51,11 @@ namespace gvk {
 		opt<VkShaderModule> CreateShaderModule(VkDevice device);
 		opt<VkShaderModule>	GetShaderModule();
 
-		opt<std::vector<SpvReflectDescriptorBinding*>> GetDescriptorBindings();
-		opt<std::vector<SpvReflectDescriptorSet*>>     GetDescriptorSets();
-		opt<std::vector<SpvReflectInterfaceVariable*>> GetInputVariables();
-		opt<std::vector<SpvReflectInterfaceVariable*>> GetOutputVariables();
+		opt<std::vector<SpvReflectDescriptorBinding*>>	GetDescriptorBindings();
+		opt<std::vector<SpvReflectDescriptorSet*>>		GetDescriptorSets();
+		opt<std::vector<SpvReflectInterfaceVariable*>>	GetInputVariables();
+		opt<std::vector<SpvReflectInterfaceVariable*>>	GetOutputVariables();
+		opt<std::vector<SpvReflectBlockVariable*>>		GetPushConstants();
 
 		~Shader();
 

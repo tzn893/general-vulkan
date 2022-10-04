@@ -2,6 +2,7 @@
 #include "gvk_common.h"
 #include "gvk_window.h"
 #include "gvk_command.h"
+#include "gvk_resource.h"
 
 struct GVK_VERSION {
 	uint32 v0, v1, v2;
@@ -65,6 +66,13 @@ namespace gvk {
 		bool InitializeDevice(const GVK_DEVICE_CREATE_INFO& create, std::string* error);
 
 		/// <summary>
+		/// Initialize the allocator for allocating buffer/image's memory
+		/// </summary>
+		/// <param name="vk_api_version">The current vulkan api version</param>
+		/// <returns>true if intialized successfully</returns>
+		bool IntializeMemoryAllocation(uint32 vk_api_version, std::string* error);
+
+		/// <summary>
 		/// create the swap chain and present queue
 		/// </summary>
 		/// <param name="window"></param>
@@ -121,9 +129,9 @@ namespace gvk {
 
 
 		/// <summary>
-		/// 
+		/// Get current frame buffer's index
 		/// </summary>
-		/// <returns></returns>
+		/// <returns>frame buffer's index</returns>
 		uint32 CurrentFrameIndex();
 
 		/// <summary>
@@ -143,6 +151,23 @@ namespace gvk {
 		/// <param name="semaphore">The semaphore to wait before the presentation</param>
 		/// <returns> Return VK_SUCCESS if success, otherwise return corresponding error message</returns>
 		VkResult Present(const SemaphoreInfo& semaphore);
+
+
+		/// <summary>
+		/// Create a buffer from global allocator
+		/// </summary>
+		/// <param name="buffer_usage">the usage of the buffer</param>
+		/// <param name="size">the size of the buffer</param>
+		/// <param name="write">the host write strategy of the buffer</param>
+		/// <returns>the created buffer</returns>
+		opt<ptr<Buffer>> CreateBuffer(VkBufferUsageFlags buffer_usage, uint64_t size, GVK_HOST_WRITE_PROPERTY write);
+
+		/// <summary>
+		/// Create a image from global allocator
+		/// </summary>
+		/// <param name="info">the create info of the image</param>
+		/// <returns>created iamge</returns>
+		opt<ptr<Image>>  CreateImage(const GvkImageCreateInfo& info);
 	
 		~Context();
 	private:
@@ -231,6 +256,9 @@ namespace gvk {
 		uint32 m_BackBufferCount = 3;
 		std::vector<VkImage> m_BackBuffers;
 		std::vector<VkImageView> m_BackBufferViews;
+
+		//allocator for memory allocation
+		VmaAllocator m_Allocator;
 
 		opt<uint32> FindSuitableQueueIndex(VkFlags flags,float priority);
 		opt<ptr<CommandQueue>> ConsumePrequiredQueue(uint32 idx);

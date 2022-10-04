@@ -143,62 +143,6 @@ namespace gvk {
 		memset(&m_AppInfo, 0, sizeof(m_AppInfo));
 	}
 
-	opt<uint32> Context::FindSuitableQueueIndex(VkFlags flags, float priority)
-	{
-		uint32 queue_idx = 0;
-		for (auto queue : m_RequiredQueueInfos) {
-			if (queue.flags == flags && queue.priority == priority) {
-				break;
-			}
-			queue_idx++;
-		}
-		if (queue_idx >= m_RequiredQueueInfos.size()) {
-			return std::nullopt;
-		}
-		return queue_idx;
-	}
-
-	opt<ptr<CommandQueue>> Context::ConsumePrequiredQueue(uint32 idx)
-	{
-		gvk_assert(idx < m_RequiredQueueInfos.size());
-		QueueInfo info = m_RequiredQueueInfos[idx];
-		VkQueue queue = NULL;
-		vkGetDeviceQueue(m_Device, info.family_index, info.queue_index, &queue);
-		if (queue == NULL) return std::nullopt;
-
-		//create a fence for queue for cpu synchronization
-		VkFence fence;
-		if (auto v = CreateFence(VK_FENCE_CREATE_SIGNALED_BIT);v.has_value()) {
-			fence = v.value();
-		}
-		else {
-			return std::nullopt;
-		}
-
-		m_RequiredQueueInfos.erase(m_RequiredQueueInfos.begin() + idx);
-		ptr<CommandQueue> queue_ptr(new CommandQueue(queue, info.family_index, info.queue_index, info.priority, fence, m_Device));
-		queue_ptr->m_Context = this;
-		return { queue_ptr };
-	}
-
-	void Context::OnCommandQueueDestroy(CommandQueue* queue)
-	{
-		gvk_assert(queue != nullptr);
-		QueueInfo info{};
-		info.family_index = queue->m_QueueFamilyIndex;
-		info.queue_index = queue->m_QueueIndex;
-
-		//the queue family's supported flags can be found in QueueFamilyInfo
-		auto queue_family_props = m_DevicePropertiesFeature.QueueFamilyProperties();
-		info.flags = queue_family_props[info.family_index].props.queueFlags;
-		info.priority = queue->m_Priority;
-		m_RequiredQueueInfos.push_back(info);
-
-		if (queue->m_Fence != nullptr) {
-			vkDestroyFence(m_Device, queue->m_Fence, nullptr);
-		}
-	}
-
 	opt<VkSemaphore> Context::CreateVkSemaphore()
 	{
 		VkSemaphoreCreateInfo info{};
@@ -231,6 +175,9 @@ namespace gvk {
 		if (m_VkInstance != NULL) {
 			//physics device will be destroyed at the same time 
 			vkDestroyInstance(m_VkInstance, nullptr);
+		}
+		if (m_Allocator != NULL) {
+			vmaDestroyAllocator(m_Allocator);
 		}
 	}
 
@@ -486,33 +433,6 @@ namespace gvk {
 		return View<QueueFamilyInfo>(queue_family_prop);
 	}
 
-	opt<ptr<CommandQueue>> Context::CreateQueue(VkFlags flags, float priority) {
-		uint32 queue_idx;
-		if (auto v = FindSuitableQueueIndex(flags, priority);v.has_value()) {
-			queue_idx = v.value();
-		}
-		else {
-			return std::nullopt;
-		}
-
-		return ConsumePrequiredQueue(queue_idx);
-	}
-
-	opt<ptr<CommandPool>> Context::CreateCommandPool(const CommandQueue* queue)
-	{
-		VkCommandPoolCreateInfo info{};
-		info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		info.queueFamilyIndex = queue->QueueFamily();
-		info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		info.pNext = nullptr;
-		VkCommandPool cmd_pool;
-		if (vkCreateCommandPool(m_Device, &info, nullptr, &cmd_pool) != VK_SUCCESS) {
-			return std::nullopt;
-		}
-
-		return ptr<CommandPool>(new CommandPool(cmd_pool, queue->QueueFamily(),m_Device));
-	}
-
 	bool Context::CreateSwapChain(Window* window,VkFormat rt_format,std::string* error) {
 		gvk_assert(window != NULL);
 		gvk_assert(m_SwapChain == NULL);
@@ -680,7 +600,6 @@ namespace gvk {
 
 			vkCreateImageView(m_Device, &info, nullptr, &m_BackBufferViews[i]);
 		}
-
 		return true;
 	}
 	
