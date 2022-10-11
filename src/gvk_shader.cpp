@@ -50,10 +50,10 @@ namespace fs = std::filesystem;
 
 namespace gvk {
 
-	Shader::Shader(void* byte_code, uint64_t byte_code_size, VkShaderStageFlagBits stage):m_ByteCode(byte_code),
-		m_ByteCodeSize(byte_code_size),m_Stage(stage),m_Device(NULL),m_ShaderModule(NULL) {}
+	Shader::Shader(void* byte_code, uint64_t byte_code_size, VkShaderStageFlagBits stage, const std::string& name) :m_ByteCode(byte_code),
+		m_ByteCodeSize(byte_code_size), m_Stage(stage), m_Device(NULL), m_ShaderModule(NULL), m_Name(name) {}
 
-	static opt<std::string> SearchUnderPathes(const char* file, const char** search_pathes, uint32 search_path_count) {
+	static opt<fs::path> SearchUnderPathes(const char* file, const char** search_pathes, uint32 search_path_count) {
 		fs::path p(file);
 		bool found = true;
 		//if the file path as relative path doesn't exists
@@ -72,7 +72,7 @@ namespace gvk {
 				}
 			}
 		}
-		if (found) return p.string();
+		if (found) return p;
 		return std::nullopt;
 	}
 
@@ -80,40 +80,51 @@ namespace gvk {
 	opt<ptr<Shader>> Shader::Compile(const char* file, GVK_SHADER_STAGE stage,
 		const ShaderMacros& macros,
 		const char** include_directories, uint32 include_directory_count,
-		const char** search_pathes, uint32 search_path_count, 
+		const char** search_pathes, uint32 search_path_count,
 		std::string* error)
 	{
-		static std::string shader_stage_name_table[GVK_SHADER_STAGE_CALLABLE + 1] = {
-			"vert","tesc","tese","geom","frag","comp","comp","comp","comp","comp","comp","comp","comp","comp"
-		};
 
-		std::string input;
-		if (auto p = SearchUnderPathes(file,search_pathes,search_path_count)) {
-			input = p.value();
+		std::string input, ext;
+		if (auto p = SearchUnderPathes(file, search_pathes, search_path_count))
+		{
+			input = p.value().string();
+			ext = p.value().extension().string();
 		}
-		else {
-			if(error) *error = "gvk : input file" + std::string(file) + "  doesn't exists";
+		else
+		{
+			if (error) *error = "gvk : input file" + std::string(file) + "  doesn't exists";
 			return std::nullopt;
 		}
 
+
 		std::string output = input + ".spv";
-		std::string options = " -fshader-stage=" + shader_stage_name_table[stage] + " " + input + " -o " + output;
 		//add macros to glslc
-		for (uint32 i = 0; i < macros.name.size();i++) {
+		std::string options = " " + input + " -o " + output;
+
+		//if shader is ray tracing shaders
+		if (ext == ".rhit" || ext == ".rgen" || ext == ".rmiss")
+		{
+			//only target envoriment vulkan1.2 supports ray tracing shaders
+			options += " --target-env=vulkan1.2";
+		}
+
+		for (uint32 i = 0; i < macros.name.size(); i++)
+		{
 			options += " -D" + std::string(macros.name[i]);
-			if (macros.value[i] != nullptr) {
+			if (macros.value[i] != nullptr)
+			{
 				options += "=" + std::string(macros.value[i]);
 			}
 		}
 		//add include directories to glslc
-		for (uint32 i = 0; i < include_directory_count;i++) {
+		for (uint32 i = 0; i < include_directory_count; i++) {
 			options += " -I " + std::string(include_directories[i]);
 		}
 
 		//lauch the compile process
 		if (auto v = LauchProcess(GLSLC_EXECUATABLE, options.c_str()); !v.has_value())
 		{
-			if(error != nullptr) *error = "gvk : fail to create glslc process";
+			if (error != nullptr) *error = "gvk : fail to create glslc process";
 			return std::nullopt;
 		}
 		else if (v.value() != 0) {
@@ -146,7 +157,7 @@ namespace gvk {
 			return std::nullopt;
 		}
 
-		ptr<Shader> shader(new Shader(data, code_file_len, (VkShaderStageFlagBits)shader_module.GetShaderStage()));
+		ptr<Shader> shader(new Shader(data, code_file_len, (VkShaderStageFlagBits)shader_module.GetShaderStage(), fs::path(file).filename().string()));
 		shader->m_ReflectShaderModule = std::move(shader_module);
 		shader->m_ShaderModule = NULL;
 		return shader;
@@ -158,7 +169,7 @@ namespace gvk {
 		file += ".spv";
 		std::string path;
 		if (auto v = SearchUnderPathes(file.c_str(), search_pathes, search_path_count); v.has_value()) {
-			path = v.value();
+			path = v.value().string();
 		}
 		else {
 			*error = "gvk : fail to load file " + file;
@@ -184,14 +195,14 @@ namespace gvk {
 	opt<VkShaderModule> Shader::CreateShaderModule(VkDevice device) {
 		//this function should not be called once
 		gvk_assert(m_ShaderModule == NULL);
-		
+
 		VkShaderModuleCreateInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 		info.pNext = NULL;
 		info.pCode = (uint32_t*)m_ByteCode;
 		info.codeSize = m_ByteCodeSize;
 		info.flags = 0;
-		
+
 		if (vkCreateShaderModule(device, &info, nullptr, &m_ShaderModule) == VK_SUCCESS) {
 			m_Device = device;
 			return m_ShaderModule;
@@ -205,16 +216,26 @@ namespace gvk {
 		return m_ShaderModule;
 	}
 
-	template<typename T,typename Enumerator>
-	opt<std::vector<T*>> GetDataFromShaderModule(const spv_reflect::ShaderModule& shader_module, Enumerator enumerator) {
+	template<typename T, typename Enumerator>
+	opt<std::vector<T*>> GetDataFromShaderModule(const spv_reflect::ShaderModule& shader_module, Enumerator enumerator) 
+	{
 		uint32 count = 0;
-		if ((shader_module.*enumerator)(&count,nullptr) != SPV_REFLECT_RESULT_SUCCESS) {
+		if ((shader_module.*enumerator)(&count, nullptr) != SPV_REFLECT_RESULT_SUCCESS) 
+		{
 			return std::nullopt;
 		}
 		std::vector<T*> values(count);
 		gvk_assert((shader_module.*enumerator)(&count, values.data()) == SPV_REFLECT_RESULT_SUCCESS);
 
 		return std::move(values);
+	}
+
+	template<typename Enumerator>
+	uint32 GetDataElementCountFromShaderModule(const spv_reflect::ShaderModule& shader_module,Enumerator enumerator) 
+	{
+		uint32 count = 0;
+		(shader_module.*enumerator)(&count, nullptr);
+		return count;
 	}
 
 	opt<std::vector<SpvReflectDescriptorBinding*>> Shader::GetDescriptorBindings()
@@ -242,8 +263,35 @@ namespace gvk {
 	}
 
 
-	opt<std::vector<SpvReflectBlockVariable*>>	Shader::GetPushConstants() {
+	opt<std::vector<SpvReflectBlockVariable*>>	Shader::GetPushConstants() 
+	{
 		return GetDataFromShaderModule<SpvReflectBlockVariable>
 			(m_ReflectShaderModule, &spv_reflect::ShaderModule::EnumeratePushConstantBlocks);
+	}
+
+	uint32 Shader::GetDescriptorBindingCount() 
+	{
+		return GetDataElementCountFromShaderModule(m_ReflectShaderModule,
+			&spv_reflect::ShaderModule::EnumerateDescriptorBindings);
+	}
+	uint32 Shader::GetDescriptorSetCount() 
+	{
+		return GetDataElementCountFromShaderModule(m_ReflectShaderModule,
+			&spv_reflect::ShaderModule::EnumerateDescriptorSets);
+	}
+	uint32 Shader::GetInputVariableCount() 
+	{
+		return GetDataElementCountFromShaderModule(m_ReflectShaderModule,
+			&spv_reflect::ShaderModule::EnumerateInputVariables);
+	}
+	uint32 Shader::GetOutputVariableCount() 
+	{
+		return GetDataElementCountFromShaderModule(m_ReflectShaderModule,
+			&spv_reflect::ShaderModule::EnumerateOutputVariables);
+	}
+	uint32 Shader::GetPushConstantCount() 
+	{
+		return GetDataElementCountFromShaderModule(m_ReflectShaderModule,
+			&spv_reflect::ShaderModule::EnumeratePushConstants);
 	}
 }

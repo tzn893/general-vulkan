@@ -3,6 +3,7 @@
 #include "gvk_window.h"
 #include "gvk_command.h"
 #include "gvk_resource.h"
+#include "gvk_pipeline.h"
 
 struct GVK_VERSION {
 	uint32 v0, v1, v2;
@@ -36,12 +37,20 @@ struct GVK_DEVICE_CREATE_INFO {
 		float   priority;
 	};
 	std::vector<QueueRequireInfo> required_queues;
-	void RequireQueue(VkFlags queue_flags, uint32 count, float priority = 1.0f);
+	GVK_DEVICE_CREATE_INFO& RequireQueue(VkFlags queue_flags, uint32 count, float priority = 1.0f);
 
 	std::vector<const char*> required_extensions;
-	void AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
+	GVK_DEVICE_CREATE_INFO& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
 	GVK_DEVICE_CREATE_INFO() {}
+};
+
+struct GVK_INSTANCE_CREATE_INFO {
+	GVK_INSTANCE_CREATE_INFO& AddInstanceExtension(GVK_INSTANCE_EXTENSION ext);
+	std::vector<GVK_INSTANCE_EXTENSION> required_instance_extensions;
+	
+	GVK_INSTANCE_CREATE_INFO& AddLayer(GVK_LAYER layer);
+	std::vector<GVK_LAYER> required_layers;
 };
 
 namespace gvk {
@@ -51,10 +60,15 @@ namespace gvk {
 	public:
 		static opt<ptr<Context>> CreateContext(const char* app_name,GVK_VERSION app_version,
 			uint32 api_version,ptr<Window> window, std::string* error);
-		
-		bool AddInstanceExtension(GVK_INSTANCE_EXTENSION);
-		bool AddInstanceLayer(GVK_LAYER layer);
-		bool InitializeInstance(std::string* error);
+
+		/// <summary>
+		/// Initialize the instance in the context
+		/// This function should be called before any other function call
+		/// </summary>
+		/// <param name="info">the information adout the instance (enabled extensions etc.)</param>
+		/// <param name="error">if the initialization fails. return error message through this parameter</param>
+		/// <returns>if the initialization succeed</returns>
+		bool InitializeInstance(GVK_INSTANCE_CREATE_INFO& info,std::string* error);
 		
 		/// <summary>
 		/// Initialize the device in the context
@@ -168,9 +182,25 @@ namespace gvk {
 		/// <param name="info">the create info of the image</param>
 		/// <returns>created iamge</returns>
 		opt<ptr<Image>>  CreateImage(const GvkImageCreateInfo& info);
+
+
+		opt<ptr<GraphicsPipeline>> CreateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info);
+
+		/// <summary>
+		/// Create a descriptor set layout of a set slot from several shaders.
+		/// It is important that the descriptor bindings inside the set in shaders should be compatiable with each other.
+		/// </summary>
+		/// <param name="target_shaders">the target shaders to create layout from</param>
+		/// <param name="target_binding">the target set slot to create descriptor set</param>
+		/// <returns>created descriptor set layout</returns>
+		opt<ptr<DescriptorSetLayout>> CreateDescriptorSetLayout(const std::vector<ptr<Shader>>& target_shaders,
+			uint32 target_set,std::string* error);
 	
 		~Context();
 	private:
+		bool AddInstanceExtension(GVK_INSTANCE_EXTENSION);
+		bool AddInstanceLayer(GVK_LAYER layer);
+
 		struct QueueInfo {
 			VkFlags flags;
 			float   priority;

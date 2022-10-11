@@ -57,10 +57,18 @@ namespace gvk {
 		opt<std::vector<SpvReflectInterfaceVariable*>>	GetOutputVariables();
 		opt<std::vector<SpvReflectBlockVariable*>>		GetPushConstants();
 
+		uint32 GetDescriptorBindingCount();
+		uint32 GetDescriptorSetCount();
+		uint32 GetInputVariableCount();
+		uint32 GetOutputVariableCount();
+		uint32 GetPushConstantCount();
+
+		const std::string& Name();
+
 		~Shader();
 
 	private:
-		Shader(void* byte_code, uint64_t byte_code_size,VkShaderStageFlagBits stage);
+		Shader(void* byte_code, uint64_t byte_code_size,VkShaderStageFlagBits stage,const std::string& name);
 
 		static opt<ptr<Shader>> LoadFromBinaryFile(std::string& file,std::string* error);
 
@@ -70,6 +78,7 @@ namespace gvk {
 		spv_reflect::ShaderModule m_ReflectShaderModule;
 		VkShaderModule m_ShaderModule;
 		VkDevice	   m_Device;
+		std::string    m_Name;
 	};
 
 }

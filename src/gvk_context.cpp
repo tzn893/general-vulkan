@@ -74,12 +74,17 @@ namespace gvk {
 		return context;
 	}
 
+	static std::vector<const char*> target_extensions[GVK_INSTANCE_EXTENSION_COUNT] = {
+			{VK_EXT_DEBUG_UTILS_EXTENSION_NAME},//GVK_INSTANCE_EXTENSION_DEBUG
+	};
+
+	static const char* layer_name_table[GVK_LAYER_COUNT] = {
+			"VK_LAYER_KHRONOS_validation",
+			"VK_LAYER_LUNARG_monitor",//GVK_INSTANCE_EXTENSION_LUNARG_FPS_MONITOR
+	};
+
 	bool Context::AddInstanceExtension(GVK_INSTANCE_EXTENSION e_extension) {
 		gvk_assert(e_extension < GVK_INSTANCE_EXTENSION_COUNT);
-
-		static std::vector<const char*> target_extensions[GVK_INSTANCE_EXTENSION_COUNT] = {
-			{VK_EXT_DEBUG_UTILS_EXTENSION_NAME},//GVK_INSTANCE_EXTENSION_DEBUG
-		};
 
 		std::vector<const char*>& target = target_extensions[e_extension];
 		//for removing added extensions
@@ -97,10 +102,7 @@ namespace gvk {
 
 
 	bool Context::AddInstanceLayer(GVK_LAYER layer) {
-		static const char* layer_name_table[GVK_LAYER_COUNT] = {
-			"VK_LAYER_KHRONOS_validation",
-			"VK_LAYER_LUNARG_monitor",//GVK_INSTANCE_EXTENSION_LUNARG_FPS_MONITOR
-		};
+		
 		gvk_assert(layer < GVK_LAYER_COUNT);
 		const char* layer_name = layer_name_table[layer];
 		if (std::find_if(m_RequiredInstanceLayers.begin(), m_RequiredInstanceLayers.end(),
@@ -114,8 +116,30 @@ namespace gvk {
 		return true;
 	}
 
-	bool Context::InitializeInstance(std::string* error)
-{
+	bool Context::InitializeInstance(GVK_INSTANCE_CREATE_INFO& info,std::string* error)
+	{
+		for (auto layer : info.required_layers) 
+		{
+			bool res = AddInstanceLayer(layer);
+			if (!res) 
+			{
+				*error = "gvk: fail to enable layer " + std::string(layer_name_table[layer]);
+				return false;
+			}
+		}
+		for (auto ext : info.required_instance_extensions) {
+			bool res = AddInstanceExtension(ext);
+			if (!res)
+			{
+				std::string ext_names = "";
+				for (auto name : target_extensions[ext]) {
+					ext_names = ext_names.append(name).append(" ");
+				}
+				*error = "gvk : fail to enable instance extension " + ext_names;
+				return false;
+			}
+		}
+			
 		VkInstanceCreateInfo inst_create{};
 		inst_create.pApplicationInfo = &m_AppInfo;
 		inst_create.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -156,6 +180,7 @@ namespace gvk {
 		}
 		return semaphore;
 	}
+
 
 	Context::~Context() {
 		for (auto image_view : m_BackBufferViews) {
@@ -663,12 +688,13 @@ namespace gvk {
 	}
 }
 
-void GVK_DEVICE_CREATE_INFO::RequireQueue(VkFlags queue_flags, uint32 count, float priority /*= 1.0f*/)
+GVK_DEVICE_CREATE_INFO& GVK_DEVICE_CREATE_INFO::RequireQueue(VkFlags queue_flags, uint32 count, float priority /*= 1.0f*/)
 {
 	required_queues.push_back({ queue_flags,count,priority });
+	return *this;
 }
 
-void GVK_DEVICE_CREATE_INFO::AddDeviceExtension(GVK_DEVICE_EXTENSION extension)
+GVK_DEVICE_CREATE_INFO& GVK_DEVICE_CREATE_INFO::AddDeviceExtension(GVK_DEVICE_EXTENSION extension)
 {
 	switch (extension) {
 	case GVK_DEVICE_EXTENSION_RAYTRACING: 
@@ -683,4 +709,25 @@ void GVK_DEVICE_CREATE_INFO::AddDeviceExtension(GVK_DEVICE_EXTENSION extension)
 		gvk_assert(false);
 		break;
 	}
+	return *this;
+}
+
+GVK_INSTANCE_CREATE_INFO& GVK_INSTANCE_CREATE_INFO::AddInstanceExtension(GVK_INSTANCE_EXTENSION ext)
+{
+	gvk_assert(ext < GVK_INSTANCE_EXTENSION_COUNT);
+	if (std::find(required_instance_extensions.begin(), required_instance_extensions.end(), ext) != required_instance_extensions.end()) 
+	{
+		required_instance_extensions.push_back(ext);
+	}
+	return *this;
+}
+
+GVK_INSTANCE_CREATE_INFO& GVK_INSTANCE_CREATE_INFO::AddLayer(GVK_LAYER layer)
+{
+	gvk_assert(layer < GVK_LAYER_COUNT);
+	if (std::find(required_layers.begin(),required_layers.end(),layer) != required_layers.end()) 
+	{
+		required_layers.push_back(layer);
+	}
+	return *this;
 }

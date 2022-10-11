@@ -34,6 +34,13 @@ layout(binding = 0) uniform _GlobalUniforms
 layout(push_constant) uniform _PushConstantRaster
 {
   PushConstantRaster pcRaster;
+  vec3 f1;
+  vec3 f2;
+  vec3 f3;
+  vec2 f4;
+  vec2 f5;
+  vec3 f6;
+  float f7;
 };
 
 layout(location = 0) in vec3 i_position;
