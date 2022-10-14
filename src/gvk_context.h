@@ -180,11 +180,29 @@ namespace gvk {
 		/// Create a image from global allocator
 		/// </summary>
 		/// <param name="info">the create info of the image</param>
-		/// <returns>created iamge</returns>
+		/// <returns>created image</returns>
 		opt<ptr<Image>>  CreateImage(const GvkImageCreateInfo& info);
 
+		/// <summary>
+		/// Create a graphics pipeline
+		/// </summary>
+		/// <param name="create_info">the create info of the graphics pipeline</param>
+		/// <returns>created graphics pipeline</returns>
+		opt<ptr<Pipeline>>	CreateGraphicsPipeline(const GvkGraphicsPipelineCreateInfo& create_info);
 
-		opt<ptr<GraphicsPipeline>> CreateGraphicsPipeline(const GraphicsPipelineCreateInfo& create_info);
+		/// <summary>
+		/// Create a compute pipeline
+		/// </summary>
+		/// <param name="create_info">the create info of the compute pipeline</param>
+		/// <returns>created compute pipeline</returns>
+		opt<ptr<Pipeline>>	CreateComputePipeline(const GvkComputePipelineCreateInfo& create_info);
+		
+		/// <summary>
+		/// Create a render pass
+		/// </summary>
+		/// <param name="info">the create info of render pass</param>
+		/// <returns>created render pass</returns>
+		opt<ptr<RenderPass>>		CreateRenderPass(const GvkRenderPassCreateInfo& info);
 
 		/// <summary>
 		/// Create a descriptor set layout of a set slot from several shaders.
@@ -195,6 +213,9 @@ namespace gvk {
 		/// <returns>created descriptor set layout</returns>
 		opt<ptr<DescriptorSetLayout>> CreateDescriptorSetLayout(const std::vector<ptr<Shader>>& target_shaders,
 			uint32 target_set,std::string* error);
+
+
+		ptr<DescriptorAllocator>	  CreateDescriptorAllocator();
 	
 		~Context();
 	private:

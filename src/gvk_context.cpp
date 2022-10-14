@@ -181,7 +181,6 @@ namespace gvk {
 		return semaphore;
 	}
 
-
 	Context::~Context() {
 		for (auto image_view : m_BackBufferViews) {
 			if (image_view != NULL) {

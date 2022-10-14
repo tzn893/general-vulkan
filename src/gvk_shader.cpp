@@ -77,7 +77,7 @@ namespace gvk {
 	}
 
 
-	opt<ptr<Shader>> Shader::Compile(const char* file, GVK_SHADER_STAGE stage,
+	opt<ptr<gvk::Shader>> Shader::Compile(const char* file,
 		const ShaderMacros& macros,
 		const char** include_directories, uint32 include_directory_count,
 		const char** search_pathes, uint32 search_path_count,
@@ -104,7 +104,7 @@ namespace gvk {
 		//if shader is ray tracing shaders
 		if (ext == ".rhit" || ext == ".rgen" || ext == ".rmiss")
 		{
-			//only target envoriment vulkan1.2 supports ray tracing shaders
+			//only target environment vulkan1.2 supports ray tracing shaders
 			options += " --target-env=vulkan1.2";
 		}
 
@@ -294,4 +294,10 @@ namespace gvk {
 		return GetDataElementCountFromShaderModule(m_ReflectShaderModule,
 			&spv_reflect::ShaderModule::EnumeratePushConstants);
 	}
+
+	const std::string& Shader::Name()
+	{
+		return m_Name;
+	}
+
 }

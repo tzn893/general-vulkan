@@ -12,7 +12,7 @@ int main() {
 	const char* include_dirs[] = { TEST_SHADER_DIRECTORY };
 	const char* search_pathes[] = { TEST_SHADER_DIRECTORY };
 	auto opt_shader = gvk::Shader::Compile(
-		"vert.vert",GVK_SHADER_STAGE_FRAGMENT,gvk::ShaderMacros(),
+		"compute.comp",gvk::ShaderMacros(),
 		include_dirs,1,search_pathes,1,nullptr);
 
 	ptr<gvk::Shader> shader = opt_shader.value();

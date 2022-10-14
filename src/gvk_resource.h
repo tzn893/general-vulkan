@@ -50,6 +50,7 @@ namespace std {
 	};
 }
 
+//the allocator pool will be hided from users by Vma
 namespace gvk {
 	class Buffer {
 		friend class Context;
@@ -126,7 +127,7 @@ namespace gvk {
 		/// <param name="baseArrayLayer">the start of texture's array of the view</param>
 		/// <param name="layerCount">the count of texture array elements in the view</param>
 		/// <param name="type">the type of the image view</param>
-		/// <returns></returns>
+		/// <returns>created view</returns>
 		opt<VkImageView> CreateView(VkImageAspectFlags    aspectMask,
 		uint32_t              baseMipLevel,
 		uint32_t              levelCount,

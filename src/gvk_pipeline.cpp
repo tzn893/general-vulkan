@@ -2,11 +2,135 @@
 #include "gvk_context.h"
 
 namespace gvk {
+
+	struct DescriptorLayoutInfoHelper
+	{
+		DescriptorLayoutInfoHelper(const GvkDescriptorLayoutHint& hint,Context& context) 
+		:context(context),hint(hint) {
+			layout_included.resize(hint.precluded_descriptor_layouts.size());
+		}
+
+		//descriptor set layouts
+		std::vector<VkDescriptorSetLayout> descriptor_layouts;
+		//a bit map check whether the precluded descriptor layouts is included to descriptor layouts for pipeline creation
+		std::vector<bool> layout_included;
+		std::vector<ptr<DescriptorSetLayout>> internal_layout;
+
+		//Push constant information
+		std::vector<VkPushConstantRange> push_constant_ranges;
+		std::unordered_map<std::string, VkPushConstantRange> push_constant_table;
+
+		Context& context;
+		const GvkDescriptorLayoutHint& hint;
+
+		bool CollectDescriptorLayoutInfo(ptr<Shader> shader) 
+		{
+			if (shader == nullptr) return false;
+
+			std::vector<SpvReflectDescriptorSet*> sets;
+			if (auto v = shader->GetDescriptorSets(); v.has_value())
+			{
+				sets = std::move(v.value());
+			}
+			else
+			{
+				return false;
+			}
+
+			//collect descriptor set layout information
+			for (auto set : sets)
+			{
+				bool is_layout_precluded = false;
+				for (uint32 i = 0; i < layout_included.size(); i++)
+				{
+					auto layout = hint.precluded_descriptor_layouts[i];
+					//does this layout is created from this shader
+					if (layout->CreatedFromShader(shader, set->set))
+					{
+						//this layout is not included in layout list
+						if (!layout_included[i])
+						{
+							descriptor_layouts.push_back(layout->GetLayout());
+							layout_included[i] = true;
+							is_layout_precluded = true;
+							break;
+						}
+					}
+				}
+				if (!is_layout_precluded)
+				{
+					//this layout is not included in layout list create a new layout for this set
+					auto opt_layout = context.CreateDescriptorSetLayout({ shader }, set->set, nullptr);
+					//this operation must success or something wrong with my code
+					gvk_assert(opt_layout.has_value());
+					internal_layout.push_back(opt_layout.value());
+					descriptor_layouts.push_back(opt_layout.value()->GetLayout());
+				}
+			}
+
+			//collect push constant information
+			std::vector<SpvReflectBlockVariable*> push_constants;
+			if (auto v = shader->GetPushConstants(); v.has_value())
+			{
+				push_constants = std::move(v.value());
+			}
+			else
+			{
+				return false;
+			}
+
+			//if the shader has push constant
+			if (!push_constants.empty())
+			{
+				//in glsl only one push_constant block is supported
+				auto push_constant = push_constants[0];
+
+				for (uint32 i = 0; i < push_constant->member_count; i++)
+				{
+					auto member = push_constant->members[i];
+					if (!push_constant_table.count(member.name))
+					{
+						push_constant_table[member.name] = { VkPushConstantRange{ (VkShaderStageFlags)shader->GetStage(),member.offset,member.size } };
+					}
+					else
+					{
+						auto& push_constant = push_constant_table[member.name];
+						//variables with the same name in different push constants should be consistent to each other
+						if (member.offset == push_constant.offset && member.size == push_constant.size)
+						{
+							push_constant.stageFlags |= shader->GetStage();
+						}
+						else
+						{
+							//variables conflict, operation fails
+							return false;
+						}
+					}
+				}
+
+				VkPushConstantRange push_constant_range;
+				push_constant_range.offset = push_constant->offset;
+				push_constant_range.size = push_constant->size;
+				push_constant_range.stageFlags = shader->GetStage();
+
+				push_constant_ranges.push_back(push_constant_range);
+			}
+
+
+			return true;
+		}
+	};
+
 	
 	DescriptorSetLayout::DescriptorSetLayout(VkDescriptorSetLayout layout, const std::vector<ptr<gvk::Shader>>& shaders,
 		const std::vector<SpvReflectDescriptorBinding*>& descriptor_set_bindings, uint32 sets,VkDevice device):
-	m_Shader(shaders),m_DescriptorSetBindings(descriptor_set_bindings),m_Set(sets),m_Layout(layout) ,m_Device(device)
-	{}
+	m_Shader(shaders),m_DescriptorSetBindings(descriptor_set_bindings),m_Set(sets),m_Layout(layout) ,m_Device(device),m_ShaderStages(0)
+	{
+		for (auto shader : shaders) 
+		{
+			m_ShaderStages |= shader->GetStage();
+		}
+	}
 
 	uint32 DescriptorSetLayout::GetSetID()
 	{
@@ -21,6 +145,11 @@ namespace gvk {
 	View<SpvReflectDescriptorBinding*> DescriptorSetLayout::GetDescriptorSetBindings() 
 	{
 		return View<SpvReflectDescriptorBinding*>(m_DescriptorSetBindings);
+	}
+
+	VkShaderStageFlags DescriptorSetLayout::GetShaderStageBits()
+	{
+		return m_ShaderStages;
 	}
 
 	DescriptorSetLayout::~DescriptorSetLayout()
@@ -85,7 +214,7 @@ namespace gvk {
 				else 
 				{
 					SpvReflectDescriptorBinding* set_binding = *res;
-					//check if the shader's binding is compatiable with existing bindings
+					//check if the shader's binding is compatible with existing bindings
 					if (set_binding->descriptor_type != binding->descriptor_type) 
 					{
 						if (error) *error = "gvk : fail to create descriptor layout at (set " + std::to_string(target_set) +  
@@ -147,6 +276,7 @@ namespace gvk {
 			//TODO : currently we don't support immutable samplers
 			vk_bindings[i].pImmutableSamplers = NULL;
 			vk_bindings[i].stageFlags = binding_stage_flags[i];
+			vk_bindings[i].descriptorCount = bindings[i]->count;
 		}
 		info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		info.pNext = NULL;
@@ -163,7 +293,7 @@ namespace gvk {
 	}
 
 
-	opt<ptr<GraphicsPipeline>> Context::CreateGraphicsPipeline(const GraphicsPipelineCreateInfo& info) {
+	opt<ptr<Pipeline>> Context::CreateGraphicsPipeline(const GvkGraphicsPipelineCreateInfo& info) {
 		VkGraphicsPipelineCreateInfo vk_create_info{};
 		vk_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		vk_create_info.pNext = NULL;
@@ -269,13 +399,14 @@ namespace gvk {
 			shader_stage_info.stage = shader->GetStage();
 			
 			shader_stage_infos.push_back(shader_stage_info);
+			return true;
 		};
 
 		if (!create_shader_stage(info.vertex_shader)) 
 		{
 			return std::nullopt;
 		}
-		if (info.fragment_shader != nullptr && !create_shader_stage(info.fragment_shader)) 
+		if (!create_shader_stage(info.fragment_shader)) 
 		{
 			return std::nullopt;
 		}
@@ -283,126 +414,37 @@ namespace gvk {
 		vk_create_info.pStages = shader_stage_infos.data();
 		vk_create_info.stageCount = shader_stage_infos.size();
 
-		// pipeline layouts
-		//We create internal descriptor sets for every shader 
-		VkPipelineLayoutCreateInfo pipeline_layout_create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-		std::vector<VkDescriptorSetLayout> descriptor_layouts;
-		//a bit map check whether the precluded descriptor layouts is included to descriptor layouts for pipeline creation
-		std::vector<bool> layout_included(info.descriptor_layuot_hint.precluded_descriptor_layouts.size(), false);
-		std::vector<ptr<DescriptorSetLayout>> internal_layout;
-
-		//Push constant information
-		std::vector<VkPushConstantRange> push_constant_ranges;
-		std::unordered_map<std::string, VkPushConstantRange> push_constant_table;
-		auto collect_desc_layout_for_shader = [&](ptr<Shader> shader) {
-			if (shader == nullptr) return false;
-
-			std::vector<SpvReflectDescriptorSet*> sets;
-			if (auto v = shader->GetDescriptorSets(); v.has_value())
-			{
-				sets = std::move(v.value());
-			}
-			else
-			{
-				return false;
-			}
-
-			//collect descriptor set layout information
-			for (auto set : sets)
-			{
-				bool is_layout_precluded = false;
-				for (uint32 i = 0; i < layout_included.size(); i++)
-				{
-					auto layout = info.descriptor_layuot_hint.precluded_descriptor_layouts[i];
-					//does this layout is created from this shader
-					if (layout->CreatedFromShader(shader, set->set))
-					{
-						//this layout is not included in layout list
-						if (!layout_included[i])
-						{
-							descriptor_layouts.push_back(layout->GetLayout());
-							layout_included[i] = true;
-							is_layout_precluded = true;
-							break;
-						}
-					}
-				}
-				if (!is_layout_precluded)
-				{
-					//this layout is not included in layout list create a new layout for this set
-					auto opt_layout = CreateDescriptorSetLayout({ shader }, set->set, nullptr);
-					//this operation must success or something wrong with my code
-					gvk_assert(opt_layout.has_value());
-					internal_layout.push_back(opt_layout.value());
-					descriptor_layouts.push_back(opt_layout.value()->GetLayout());
-				}
-			}
-
-			//collect push constant information
-			std::vector<SpvReflectBlockVariable*> push_constants;
-			if (auto v = shader->GetPushConstants(); v.has_value())
-			{
-				push_constants = std::move(v.value());
-			}
-			else
-			{
-				return false;
-			}
-
-			//if the shader has push constant
-			if (!push_constants.empty())
-			{
-				//in glsl only one push_constant block is supported
-				auto push_constant = push_constants[0];
-
-				for (uint32 i = 0; i < push_constant->member_count; i++)
-				{
-					auto member = push_constant->members[i];
-					if (!push_constant_table.count(member.name))
-					{
-						push_constant_table[member.name] = { VkPushConstantRange{ (VkShaderStageFlags)shader->GetStage(),member.offset,member.size } };
-					}
-					else
-					{
-						auto& push_constant = push_constant_table[member.name];
-						//variables with the same name in different push constants should be consistent to each other
-						if (member.offset == push_constant.offset && member.size == push_constant.size)
-						{
-							push_constant.stageFlags |= shader->GetStage();
-						}
-						else
-						{
-							//variables conflict, operation fails
-							return false;
-						}
-					}
-				}
-
-				VkPushConstantRange push_constant_range;
-				push_constant_range.offset = push_constant->offset;
-				push_constant_range.size = push_constant->size;
-				push_constant_range.stageFlags = shader->GetStage();
-
-				push_constant_ranges.push_back(push_constant_range);
-			}
-
-
-			return true;
-		};
-
-		if (!collect_desc_layout_for_shader(info.vertex_shader))
+		DescriptorLayoutInfoHelper descriptor_helper(info.descriptor_layuot_hint, *this);
+		if (!descriptor_helper.CollectDescriptorLayoutInfo(info.vertex_shader))
 		{
 			return std::nullopt;
 		}
-		if (!collect_desc_layout_for_shader(info.fragment_shader)) {
+		if (!descriptor_helper.CollectDescriptorLayoutInfo(info.fragment_shader)) {
 			return std::nullopt;
 		}
 
+		//Render passes
+		ptr<RenderPass> target_pass;
+		uint32 subpass_index;
+		if (info.target_pass != nullptr)
+		{
+			target_pass   = info.target_pass;
+			subpass_index = info.subpass_index;
+		}
+		else
+		{
+			//render passes should be created externally
+			return std::nullopt;
+		}
+
+		// pipeline layouts
+		//We create internal descriptor sets for every shader 
+		VkPipelineLayoutCreateInfo pipeline_layout_create_info{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 		pipeline_layout_create_info.flags = 0;
-		pipeline_layout_create_info.pSetLayouts = descriptor_layouts.data();
-		pipeline_layout_create_info.setLayoutCount = descriptor_layouts.size();
-		pipeline_layout_create_info.pPushConstantRanges = push_constant_ranges.data();
-		pipeline_layout_create_info.pushConstantRangeCount = push_constant_ranges.size();
+		pipeline_layout_create_info.pSetLayouts				= descriptor_helper.descriptor_layouts.data();
+		pipeline_layout_create_info.setLayoutCount			= descriptor_helper.descriptor_layouts.size();
+		pipeline_layout_create_info.pPushConstantRanges		= descriptor_helper.push_constant_ranges.data();
+		pipeline_layout_create_info.pushConstantRangeCount	= descriptor_helper.push_constant_ranges.size();
 
 		VkPipelineLayout pipeline_layout;
 		if (vkCreatePipelineLayout(m_Device, &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS)
@@ -412,13 +454,353 @@ namespace gvk {
 
 		vk_create_info.layout = pipeline_layout;
 
+		VkPipeline pipeline;
+		if (vkCreateGraphicsPipelines(m_Device,NULL,1,&vk_create_info,nullptr,&pipeline) != VK_SUCCESS) 
+		{
+			vkDestroyPipelineLayout(m_Device, pipeline_layout, nullptr);
+			return std::nullopt;
+		}
+		
+		return ptr<Pipeline>(new Pipeline(pipeline,pipeline_layout,
+			descriptor_helper.internal_layout,descriptor_helper.push_constant_table,
+			target_pass,subpass_index,m_Device));
+	}
+
+	opt<ptr<gvk::Pipeline>> Context::CreateComputePipeline(const GvkComputePipelineCreateInfo& info)
+	{
+		VkComputePipelineCreateInfo create_info{ VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+		if (auto v = info.shader->GetShaderModule(); v.has_value()) 
+		{
+			create_info.stage.module = v.value();
+		}
+		else 
+		{
+			return std::nullopt;
+		}
+
+		create_info.stage.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		create_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+		create_info.stage.pName = info.shader->Name().c_str();
+		
+		DescriptorLayoutInfoHelper helper(info.descriptor_layuot_hint, *this);
+		if (!helper.CollectDescriptorLayoutInfo(info.shader)) 
+		{
+			return std::nullopt;
+		}
+
+		VkPipelineLayoutCreateInfo pipeline_layout_create{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+		pipeline_layout_create.setLayoutCount = helper.descriptor_layouts.size();
+		pipeline_layout_create.pSetLayouts = helper.descriptor_layouts.data();
+		pipeline_layout_create.pushConstantRangeCount = helper.push_constant_ranges.size();
+		pipeline_layout_create.pPushConstantRanges = helper.push_constant_ranges.data();
+		pipeline_layout_create.flags = 0;
+
+		VkPipelineLayout layout;
+		if (vkCreatePipelineLayout(m_Device,&pipeline_layout_create,nullptr,&layout) != VK_SUCCESS) 
+		{
+			return std::nullopt;
+		}
+		create_info.layout = layout;
+
+		VkPipeline compute_pipeline;
+		if (vkCreateComputePipelines(m_Device,NULL,1,&create_info,nullptr,&compute_pipeline) != VK_SUCCESS) 
+		{
+			vkDestroyPipelineLayout(m_Device, layout, nullptr);
+			return std::nullopt;
+		}
+
+		return ptr<Pipeline>(new Pipeline(compute_pipeline, layout,
+			helper.internal_layout, helper.push_constant_table,
+			nullptr,0, m_Device));
+	}
+
+	opt<ptr<gvk::RenderPass>> Context::CreateRenderPass(const GvkRenderPassCreateInfo& info)
+	{
+		gvk_assert(m_Device != NULL);
+		VkRenderPass pass;
+		if (vkCreateRenderPass(m_Device, &info, nullptr, &pass) != VK_SUCCESS) 
+		{
+			return std::nullopt;
+		}
+		return ptr<RenderPass>(new RenderPass(pass,m_Device,info.subpassCount));
+	}
+
+	uint32 RenderPass::GetSubpassCount()
+	{
+		return m_SubpassCount;
+	}
+
+	VkRenderPass RenderPass::GetRenderPass()
+	{
+		return m_Pass;
+	}
+
+	RenderPass::~RenderPass()
+	{
+		vkDestroyRenderPass(m_Device, m_Pass, nullptr);
+	}
+
+	RenderPass::RenderPass(VkRenderPass render_pass, VkDevice device, uint32 subpass_count)
+	:m_Device(device),m_Pass(render_pass),m_SubpassCount(subpass_count){}
+
+	opt<ptr<RenderPass>> Pipeline::GetRenderPass()
+	{
+		if (m_RenderPass != nullptr) 
+		{
+			return m_RenderPass;
+		}
 		return std::nullopt;
 	}
 
+	opt<ptr<gvk::DescriptorSetLayout>> Pipeline::GetInternalLayout(uint32 set, VkShaderStageFlagBits stage)
+	{
+		for (auto& layout : m_InternalDescriptorSetLayouts) 
+		{
+			if (layout->GetSetID() == set && (layout->GetShaderStageBits() & stage)) 
+			{
+				return layout;
+			}
+		}
+		return std::nullopt;
+	}
+
+	VkPipeline Pipeline::GetPipeline()
+	{
+		return m_Pipeline;
+	}
+
+	VkPipelineLayout Pipeline::GetPipelineLayout()
+	{
+		return m_PipelineLayout;
+	}
+
+	Pipeline::~Pipeline()
+	{
+		vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
+		vkDestroyPipeline(m_Device, m_Pipeline, nullptr);
+	}
+
+	Pipeline::Pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::vector<ptr<DescriptorSetLayout>>& descriptor_set_layouts,
+		const std::unordered_map<std::string,VkPushConstantRange>& push_constants, ptr<RenderPass> render_pass, uint32 subpass_index, VkDevice device) :m_Pipeline(pipeline),m_PipelineLayout(layout),m_InternalDescriptorSetLayouts(descriptor_set_layouts),m_PushConstants(push_constants),
+	m_RenderPass(render_pass),m_SubpassIndex(subpass_index),m_Device(device) {}
+
+	VkDescriptorSet DescriptorSet::GetDescriptorSet()
+	{
+		return m_Set;
+	}
+
+	uint32 DescriptorSet::GetSetIndex()
+	{
+		return m_Layout->GetSetID();
+	}
+
+	void DescriptorSet::Write(const GvkDescriptorSetWrite& info)
+	{
+		auto bindings = m_Layout->GetDescriptorSetBindings();
+		auto find_binding = [&](const char* name)->opt<SpvReflectDescriptorBinding*> {
+			for (uint32 i = 0; i < bindings.size(); i++)
+			{
+				if (strcmp(bindings[i]->name, name) == 0) 
+				{
+					return bindings[i];
+				}
+			}
+			return std::nullopt;
+		};
+
+		std::vector<VkWriteDescriptorSet> writes;
+		//prevent trigger vector's resize which will make the pointers invalid
+		std::vector<VkDescriptorBufferInfo> buffer_infos(info.buffers.size());
+		std::vector<VkDescriptorImageInfo>	image_infos(info.images.size());
+		for (uint32 i = 0;i < info.buffers.size();i++)
+		{
+			auto& buffer = info.buffers[i];
+			SpvReflectDescriptorBinding* binding = nullptr;
+			if (auto v= find_binding(buffer.name);v.has_value()) 
+			{
+				binding = v.value();
+			}
+			else 
+			{
+				//TODO : currently we ignore the invalid write operation
+				continue;
+			}
+
+			
+			VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			write.descriptorType = (VkDescriptorType)binding->descriptor_type;
+			//TODO : currently we only support write one buffer at a time
+			write.descriptorCount = 1;
+			write.dstArrayElement = buffer.array_index;
+			write.dstBinding = binding->binding;
+			write.dstSet = m_Set;
+			
+			VkDescriptorBufferInfo buffer_info;
+			buffer_info.buffer = buffer.buffer;
+			buffer_info.offset = buffer.offset;
+			buffer_info.range = buffer.size;
+
+			buffer_infos[i] = buffer_info;
+
+			write.pBufferInfo = buffer_infos.data() + i;
+
+			writes.push_back(write);
+		}
+
+		for (uint32 i = 0;i < info.images.size(); i++)
+		{
+			auto& image = info.images[i];
+			SpvReflectDescriptorBinding* binding = nullptr;
+			if (auto v = find_binding(image.name); v.has_value())
+			{
+				binding = v.value();
+			}
+			else
+			{
+				//TODO : currently we ignore the invalid write operation
+				continue;
+			}
+
+			VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+			write.descriptorType = (VkDescriptorType)binding->descriptor_type;
+			//TODO : currently we only support write one buffer at a time
+			write.descriptorCount = 1;
+			write.dstArrayElement = image.array_index;
+			write.dstBinding = binding->binding;
+			write.dstSet = m_Set;
+
+			VkDescriptorImageInfo image_info{};
+			image_info.imageLayout = image.layout;
+			image_info.imageView = image.image;
+			image_info.sampler = image.sampler;
+
+			image_infos[i] = image_info;
+
+			write.pImageInfo = image_infos.data() + i;
+
+			writes.push_back(write);
+		}
+
+		vkUpdateDescriptorSets(m_Device, writes.size(), writes.data(), 0, NULL);
+	}
+
+	DescriptorSet::~DescriptorSet()
+	{
+		//descriptor set will be released automatically when descriptor pool is released
+	}
+
+	DescriptorSet::DescriptorSet(VkDevice device, VkDescriptorSet set, ptr<DescriptorSetLayout> layout)
+		:m_Device(device),m_Set(set),m_Layout(layout)
+	{}
+
+	opt<ptr<gvk::DescriptorSet>> DescriptorAllocator::Allocate(ptr<DescriptorSetLayout> layout)
+	{
+		//collect descriptor informations
+		auto bindings = layout->GetDescriptorSetBindings();
+		for (uint32 i = 0;i < bindings.size();i++) 
+		{
+			m_PoolSize[bindings[i]->descriptor_type].descriptorCount += bindings[i]->count;
+		}
+		m_MaxSetCount++;
+
+		//allocate descriptor set
+		VkDescriptorSetLayout layouts[] = {layout->GetLayout()};
+		VkDescriptorSetAllocateInfo alloc_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		alloc_info.descriptorPool = m_CurrentDescriptorPool;
+		alloc_info.descriptorSetCount = gvk_count_of(layouts);
+		alloc_info.pSetLayouts = layouts;
+
+		VkDescriptorSet set;
+		if (vkAllocateDescriptorSets(m_Device,&alloc_info,&set) != VK_SUCCESS) 
+		// current pool may run out of space
+		// create a new one
+		{
+			m_UsedDescriptorPool.push_back(m_CurrentDescriptorPool);
+			if (auto v = CreatePool(); !v.has_value()) 
+			{
+				m_CurrentDescriptorPool = v.value();
+			}
+			else
+			{
+				return std::nullopt;
+			}
+			auto vkrs = vkAllocateDescriptorSets(m_Device, &alloc_info, &set);
+			gvk_assert(vkrs == VK_SUCCESS);
+		}
+
+		return ptr<DescriptorSet>(new DescriptorSet(m_Device, set, layout));
+	}
+
+	ptr<gvk::DescriptorAllocator> Context::CreateDescriptorAllocator()
+	{
+		return ptr<gvk::DescriptorAllocator>(new DescriptorAllocator(m_Device));
+	}
+
+	DescriptorAllocator::~DescriptorAllocator()
+	{
+		for (auto pool : m_UsedDescriptorPool) 
+		{
+			vkDestroyDescriptorPool(m_Device, pool, nullptr);
+		}
+		vkDestroyDescriptorPool(m_Device, m_CurrentDescriptorPool, nullptr);
+	}
+
+	constexpr uint32 pool_size = 1024;
+	static std::vector<VkDescriptorPoolSize> g_pool_sizes =
+	{
+		{ VK_DESCRIPTOR_TYPE_SAMPLER				,  pool_size / 2 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER	, 4 * pool_size },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE			, 4 * pool_size },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE			, 1 * pool_size },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER	, 1 * pool_size},
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER	, 1 * pool_size},
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER			, 2 * pool_size},
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER			, 2 * pool_size},
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC	, 1 * pool_size},
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC	, 1 * pool_size},
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT		, pool_size / 2}
+	};
+
+	DescriptorAllocator::DescriptorAllocator(VkDevice device)
+		:m_Device(device) 
+	{
+		m_MaxSetCount = pool_size / 4;
+		m_PoolSize = g_pool_sizes;
+		auto pool = CreatePool();
+		gvk_assert(pool.has_value());
+		m_CurrentDescriptorPool = pool.value();
+	}
+
+	opt<VkDescriptorPool> DescriptorAllocator::CreatePool()
+	{
+		std::vector<VkDescriptorPoolSize> target_pools;
+		for (auto& size : m_PoolSize) 
+		{
+			if (size.descriptorCount != 0) 
+			{
+				target_pools.push_back(size);
+			}
+			size.descriptorCount = 0;
+		}
+		m_MaxSetCount = 0;
+
+		VkDescriptorPoolCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+		info.poolSizeCount = target_pools.size();
+		info.pPoolSizes = target_pools.data();
+		info.maxSets = m_MaxSetCount;
+		
+		VkDescriptorPool pool;
+		if (vkCreateDescriptorPool(m_Device, &info, nullptr, &pool) != VK_SUCCESS)
+		{
+			return std::nullopt;
+		}
+
+		return pool;
+	}
 
 }
 
-GraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState()
+GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState()
 {
 	create_info.pNext = NULL;
 	create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -430,7 +812,7 @@ GraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState()
 	create_info.pAttachments = NULL;
 }
 
-void GraphicsPipelineCreateInfo::FrameBufferBlendState::Resize(uint32 frame_buffer_count)
+void GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::Resize(uint32 frame_buffer_count)
 {
 	//create a default blend state for every resized states
 	VkPipelineColorBlendAttachmentState default_blend_state = BlendState();
@@ -440,14 +822,14 @@ void GraphicsPipelineCreateInfo::FrameBufferBlendState::Resize(uint32 frame_buff
 	create_info.pAttachments = frame_buffer_states.data();
 }
 
-void GraphicsPipelineCreateInfo::FrameBufferBlendState::Set(uint32 index, const BlendState& state)
+void GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::Set(uint32 index, const BlendState& state)
 {
 	gvk_assert(index < frame_buffer_states.size());
 	frame_buffer_states[index] = state;
 }
 
 
-GraphicsPipelineCreateInfo::BlendState::BlendState()
+GvkGraphicsPipelineCreateInfo::BlendState::BlendState()
 {
 	//by default blend is disabled
 	blendEnable = VK_FALSE;
@@ -464,7 +846,7 @@ GraphicsPipelineCreateInfo::BlendState::BlendState()
 	dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 }
 
-GraphicsPipelineCreateInfo::InputAssembly::InputAssembly()
+GvkGraphicsPipelineCreateInfo::InputAssembly::InputAssembly()
 {
 	sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	pNext = NULL;
@@ -476,7 +858,7 @@ GraphicsPipelineCreateInfo::InputAssembly::InputAssembly()
 }
 
 
-GraphicsPipelineCreateInfo::MultiSampleStateInfo::MultiSampleStateInfo()
+GvkGraphicsPipelineCreateInfo::MultiSampleStateInfo::MultiSampleStateInfo()
 {
 	sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	pNext = NULL;
@@ -491,7 +873,7 @@ GraphicsPipelineCreateInfo::MultiSampleStateInfo::MultiSampleStateInfo()
 	alphaToOneEnable = VK_FALSE;
 }
 
-GraphicsPipelineCreateInfo::DepthStencilStateInfo::DepthStencilStateInfo()
+GvkGraphicsPipelineCreateInfo::DepthStencilStateInfo::DepthStencilStateInfo()
 {
 	sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	pNext = NULL;
@@ -504,16 +886,16 @@ GraphicsPipelineCreateInfo::DepthStencilStateInfo::DepthStencilStateInfo()
 	depthBoundsTestEnable = VK_FALSE;
 	//by default we don't use stencil test
 	stencilTestEnable = VK_FALSE;
-	//stencil op state must be setted by user manually if user enables stencil test
+	//stencil op state must be set by user manually if user enables stencil test
 	front = VkStencilOpState{};
 	back = VkStencilOpState{};
-	//max depth bound and min depth bound must be setted by user manually if user enableds depth bound test
+	//max depth bound and min depth bound must be set by user manually if user enables depth bound test
 	maxDepthBounds = 0.f;
 	minDepthBounds = 0.f;
 	enable_depth_stencil = false;
 }
 
-GraphicsPipelineCreateInfo::RasterizationStateCreateInfo::RasterizationStateCreateInfo()
+GvkGraphicsPipelineCreateInfo::RasterizationStateCreateInfo::RasterizationStateCreateInfo()
 {
 	sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	pNext = NULL;
@@ -539,9 +921,118 @@ GraphicsPipelineCreateInfo::RasterizationStateCreateInfo::RasterizationStateCrea
 }
 
 
-void GraphicsPipelineCreateInfo::DescriptorLayoutHint::AddDescriptorSetLayout(const ptr<gvk::DescriptorSetLayout>& layout)
+void GvkDescriptorLayoutHint::AddDescriptorSetLayout(const ptr<gvk::DescriptorSetLayout>& layout)
 {
 	precluded_descriptor_layouts.push_back(layout);
 }
 
 
+GvkRenderPassCreateInfo::GvkRenderPassCreateInfo()
+{
+	sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	pNext = NULL;
+	//currently we ignore the render pass create flag
+	flags = 0;
+	
+	attachmentCount = 0;
+	pAttachments = NULL;
+	subpassCount = 0;
+	pSubpasses = NULL;
+	dependencyCount = 0;
+	pDependencies = NULL;
+}
+
+uint32 GvkRenderPassCreateInfo::AddAttachment(VkAttachmentDescriptionFlags flag, VkFormat format, VkSampleCountFlagBits sample_counts, VkAttachmentLoadOp load, VkAttachmentStoreOp store, VkAttachmentLoadOp stencil_load, VkAttachmentStoreOp stencil_store, VkImageLayout init_layout, VkImageLayout end_layout)
+{
+	m_Attachment.push_back( 
+		VkAttachmentDescription{flag,format,sample_counts,load,store,stencil_load,stencil_store,init_layout,end_layout}
+	);
+	attachmentCount = m_Attachment.size();
+	pAttachments	= m_Attachment.data();
+
+	return m_Attachment.size() - 1;
+}
+
+void GvkRenderPassCreateInfo::AddSubpass(VkSubpassDescriptionFlags flags, VkPipelineBindPoint bind_point)
+{
+	VkSubpassDescription desc{};
+	desc.flags = flags;
+	desc.pipelineBindPoint = bind_point;
+	
+	m_Subpasses.push_back(desc);
+	m_SubpassColorReference.push_back({});
+	m_SubpassDepthReference.push_back({});
+	m_SubpassInputReference.push_back({});
+
+	subpassCount = m_Subpasses.size();
+	pSubpasses = m_Subpasses.data();
+}
+
+void GvkRenderPassCreateInfo::AddSubpassColorAttachment(uint32 subpass_index, uint32 attachment_index)
+{
+	gvk_assert(subpass_index < m_Subpasses.size());
+	gvk_assert(attachment_index < m_Attachment.size());
+
+	auto& subpass = m_Subpasses[subpass_index];
+	auto& subpass_attachments = m_SubpassColorReference[subpass_index];
+
+	VkAttachmentReference ref{};
+	ref.attachment = attachment_index;
+	ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	subpass_attachments.push_back(ref);
+
+	subpass.colorAttachmentCount = subpass_attachments.size();
+	subpass.pColorAttachments = subpass_attachments.data();
+}
+
+void GvkRenderPassCreateInfo::AddSubpassDepthStencilAttachment(uint32 subpass_index, uint32 attachment_index)
+{
+	gvk_assert(subpass_index < m_Subpasses.size());
+	gvk_assert(attachment_index < m_Attachment.size());
+
+	auto& subpass = m_Subpasses[subpass_index];
+	auto& subpass_attachment = m_SubpassDepthReference[subpass_index];
+
+	VkAttachmentReference ref{};
+	ref.attachment = attachment_index;
+	ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	subpass_attachment = ref;
+
+	subpass.pDepthStencilAttachment = &subpass_attachment;
+}
+
+void GvkRenderPassCreateInfo::AddSubpassInputAttachment(uint32 subpass_index, uint32 attachment_index, VkImageLayout layout)
+{
+	gvk_assert(subpass_index < m_Subpasses.size());
+	gvk_assert(attachment_index < m_Attachment.size());
+
+	auto& subpass = m_Subpasses[subpass_index];
+	auto& subpass_attachments = m_SubpassInputReference[subpass_index];
+
+	VkAttachmentReference ref{};
+	ref.attachment = attachment_index;
+	ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	subpass_attachments.push_back(ref);
+
+	subpass.inputAttachmentCount = subpass_attachments.size();
+	subpass.pInputAttachments = subpass_attachments.data();
+}
+
+void GvkRenderPassCreateInfo::AddSubpassDependency(uint32_t srcSubpass, uint32_t dstSubpass, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkDependencyFlags dependencyFlags)
+{
+	m_Dependencies.push_back(VkSubpassDependency{
+			srcSubpass,
+			dstSubpass,
+			srcStageMask,
+			dstStageMask,
+			srcAccessMask,
+			dstAccessMask,
+			dependencyFlags
+		});
+
+	pDependencies = m_Dependencies.data();
+	dependencyCount = m_Dependencies.size();
+}

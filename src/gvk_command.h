@@ -3,6 +3,7 @@
 #include <functional>
 
 namespace gvk {
+	// We don't hide command pool from user because importance of command pool in multi-threading
 	class CommandPool {
 		friend class Context;
 		friend class CommandQueue;
