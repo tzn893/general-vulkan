@@ -1,3 +1,4 @@
+#pragma once
 #include <spirv_reflect.h>
 #include "gvk_common.h"
 
@@ -45,6 +46,8 @@ namespace gvk {
 		uint32 GetPushConstantCount();
 
 		const std::string& Name();
+
+		const char* GetEntryPointName();
 
 		~Shader();
 

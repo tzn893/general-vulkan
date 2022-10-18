@@ -14,7 +14,7 @@ struct GvkExpectStrEqualTo {
 
 
 static inline void AddNotRepeatedElement(std::vector<const char*>& target, const char* name) {
-	if (std::find_if(target.begin(), target.end(), GvkExpectStrEqualTo(name)) != target.end()) {
+	if (std::find_if(target.begin(), target.end(), GvkExpectStrEqualTo(name)) == target.end()) {
 		target.push_back(name);
 	}
 }
@@ -116,7 +116,7 @@ namespace gvk {
 		return true;
 	}
 
-	bool Context::InitializeInstance(GVK_INSTANCE_CREATE_INFO& info,std::string* error)
+	bool Context::InitializeInstance(GvkInstanceCreateInfo& info,std::string* error)
 	{
 		for (auto layer : info.required_layers) 
 		{
@@ -147,7 +147,7 @@ namespace gvk {
 		inst_create.enabledLayerCount = m_RequiredInstanceLayers.size();
 		
 		inst_create.enabledExtensionCount = m_RequiredInstanceExtensions.size();
-		inst_create.ppEnabledLayerNames = m_RequiredInstanceExtensions.empty() ? nullptr : m_RequiredInstanceExtensions.data();
+		inst_create.ppEnabledExtensionNames = m_RequiredInstanceExtensions.empty() ? nullptr : m_RequiredInstanceExtensions.data();
 
 		inst_create.pNext = nullptr;
 
@@ -181,11 +181,67 @@ namespace gvk {
 		return semaphore;
 	}
 
+	void Context::DestroyVkSemaphore(VkSemaphore semaphore)
+	{
+		gvk_assert(semaphore != NULL);
+		vkDestroySemaphore(m_Device, semaphore, nullptr);
+	}
+
+	opt<VkFramebuffer> Context::CreateFrameBuffer(ptr<RenderPass> render_pass, const VkImageView* views, uint32 width, uint32 height, uint32 layers /*= 1*/, VkFramebufferCreateFlags create_flags /*= 0*/)
+	{
+		uint32 attachment_count = render_pass->GetAttachmentCount();
+
+		VkFramebufferCreateInfo info{ VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+		info.flags = create_flags;
+		info.renderPass = render_pass->GetRenderPass();
+		info.width = width;
+		info.height = height;
+		info.pAttachments = views;
+
+		if (layers != 1) 
+		{
+			if (layers != attachment_count) return std::nullopt;
+			info.layers = layers;
+			info.attachmentCount = 1;
+		}
+		else 
+		{
+			info.layers = 1;
+			info.attachmentCount = attachment_count;
+		}
+
+		VkFramebuffer frame_buffer;
+		if (vkCreateFramebuffer(m_Device,&info,nullptr,&frame_buffer) != VK_SUCCESS) 
+		{
+			return std::nullopt;
+		}
+
+		return frame_buffer;
+	}
+
+	void Context::DestroyFrameBuffer(VkFramebuffer frame_buffer)
+	{
+		gvk_assert(frame_buffer != NULL);
+		vkDestroyFramebuffer(m_Device, frame_buffer, nullptr);
+	}
+
+
+	gvk::View<ptr<gvk::Image>> Context::GetBackBuffers()
+	{
+		return View(m_BackBuffers);
+	}
+
 	Context::~Context() {
-		for (auto image_view : m_BackBufferViews) {
-			if (image_view != NULL) {
-				vkDestroyImageView(m_Device, image_view, nullptr);
-			}
+		m_Window = nullptr;
+		m_PresentQueue = nullptr;
+
+		for (auto semaphore : m_ImageAcquireSemaphore) 
+		{
+			vkDestroySemaphore(m_Device, semaphore, nullptr);
+		}
+
+		for (auto back_buffer : m_BackBuffers) {
+			back_buffer = nullptr;
 		}
 		if (m_SwapChain) {
 			vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
@@ -208,16 +264,16 @@ namespace gvk {
 	
 
 	//this function should not be called more than once
-	bool Context::InitializeDevice(const GVK_DEVICE_CREATE_INFO& create, std::string * error) {
+	bool Context::InitializeDevice(const GvkDeviceCreateInfo& create, std::string * error) {
 		gvk_assert(m_Device == NULL);
 		gvk_assert(m_VkInstance != NULL);
 
-		GVK_DEVICE_CREATE_INFO::QueueRequireInfo require_present_queue{};
+		GvkDeviceCreateInfo::QueueRequireInfo require_present_queue{};
 		require_present_queue.count = 1;
 		require_present_queue.flags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
 		require_present_queue.priority = 1.0f;
 		//
-		const_cast<GVK_DEVICE_CREATE_INFO&>(create).required_queues.push_back(require_present_queue);
+		const_cast<GvkDeviceCreateInfo&>(create).required_queues.push_back(require_present_queue);
 
 		//find all physical device
 		uint32 phy_device_count;
@@ -324,16 +380,18 @@ namespace gvk {
 				}
 			}
 		}
-		for (uint32 qfidx = 0; qfidx < qf_props.size();) {
+
+		uint32 dqc_idx = 0;
+		for (uint32 qfidx = 0; qfidx < priority_buffer.size(); qfidx++) {
 			//if the queue family is empty,remove it from device_queue_create buffers
-			if (priority_buffer[qfidx].empty() == 0) {
-				device_queue_create.erase(device_queue_create.begin() + qfidx);
+			if (priority_buffer[qfidx].empty()) {
+				device_queue_create.erase(device_queue_create.begin() + dqc_idx);
 				continue;
 			}
-			device_queue_create[qfidx].pQueuePriorities = priority_buffer[qfidx].data();
-			device_queue_create[qfidx].queueCount = priority_buffer[qfidx].size();
-			device_queue_create[qfidx].queueFamilyIndex = qf_props[qfidx].index;
-			qfidx++;
+			device_queue_create[dqc_idx].pQueuePriorities = priority_buffer[qfidx].data();
+			device_queue_create[dqc_idx].queueCount = priority_buffer[qfidx].size();
+			device_queue_create[dqc_idx].queueFamilyIndex = qf_props[qfidx].index;
+			dqc_idx++;
 		}
 
 		VkDeviceCreateInfo device_create{};
@@ -341,7 +399,6 @@ namespace gvk {
 		device_create.pNext = nullptr;
 		device_create.queueCreateInfoCount = device_queue_create.size();
 		device_create.pQueueCreateInfos = device_queue_create.data();
-		device_create.enabledLayerCount = m_RequiredInstanceLayers.size();
 		//device_create.ppEnabledLayerNames is ignored https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#extendingvulkan-layers-devicelayerdeprecation.
 		//device_create.enabledLayerCount is deprecated and ignored.
 		device_create.enabledExtensionCount = create.required_extensions.size();
@@ -374,7 +431,61 @@ namespace gvk {
 			return false;
 		}
 
-		return true;
+		//initialize memory allocation
+		m_Allocator = NULL;
+		bool addressable = false;
+		for (auto extension : create.required_extensions)
+		{
+			if (strcmp(extension,"VK_KHR_buffer_device_address") == 0) 
+			{
+				addressable = true;
+				break;
+			}
+		}
+
+		m_DeviceAddressable = addressable;
+		return IntializeMemoryAllocation(addressable, m_AppInfo.apiVersion, error);
+	}
+
+	opt<ptr<gvk::Shader>> Context::CompileShader(const char* file, const ShaderMacros& macros, const char** include_directories, uint32 include_directory_count, const char** search_pathes, uint32 search_path_count, std::string* error)
+	{
+		ptr<Shader> shader;
+		if (auto v = Shader::Compile(file,macros,include_directories,
+			include_directory_count,search_pathes,search_path_count,
+			error); v.has_value()) 
+		{
+			shader = v.value();
+		}
+		else 
+		{
+			return std::nullopt;
+		}
+
+		if (!shader->CreateShaderModule(m_Device).has_value()) 
+		{
+			return std::nullopt;
+		}
+		return shader;
+	}
+
+	opt<ptr<gvk::Shader>> Context::LoadShader(const char* file, const char** search_pathes, uint32 search_path_count, std::string* error)
+	{
+		ptr<Shader> shader;
+		if (auto v = Shader::Load(file,search_pathes,search_path_count,
+			error);v.has_value())
+		{
+			shader = v.value();
+		}
+		else 
+		{
+			return std::nullopt;
+		}
+
+		if (!shader->CreateShaderModule(m_Device).has_value())
+		{
+			return std::nullopt;
+		}
+		return shader;
 	}
 
 	Context::PhysicalDevicePropertiesAndFeatures::PhysicalDevicePropertiesAndFeatures() {
@@ -527,6 +638,8 @@ namespace gvk {
 			//TODO: Currently we simply use FIFO present mode may consider other modes
 			swap_chain_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
 
+			swap_chain_info.minImageCount = m_BackBufferCount;
+
 			m_SwapChainCreateInfo = swap_chain_info;
 
 			// fail to update the swap chain
@@ -580,11 +693,12 @@ namespace gvk {
 
 		VkSwapchainKHR old_swap_chain = m_SwapChain;
 
+		
 		m_SwapChainCreateInfo.oldSwapchain = old_swap_chain;
 		m_SwapChainCreateInfo.imageExtent = swap_chain_ext;
 		m_SwapChainCreateInfo.preTransform = swap_chain_transform;
 
-		if (!vkCreateSwapchainKHR(m_Device, &m_SwapChainCreateInfo, nullptr, &m_SwapChain)) {
+		if (vkCreateSwapchainKHR(m_Device, &m_SwapChainCreateInfo, nullptr, &m_SwapChain) != VK_SUCCESS) {
 			if (error != nullptr) *error = "gvk : fail to create swap chain";
 			return false;
 		}
@@ -595,51 +709,57 @@ namespace gvk {
 		//the count of image get from swap chain must match the count we required
 		gvk_assert(image_count == m_BackBufferCount);
 		m_BackBuffers.resize(image_count);
-		vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &image_count, m_BackBuffers.data());
+		std::vector<VkImage> vk_back_buffers(image_count);
+		vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &image_count, vk_back_buffers.data());
+
+		for (uint32 i = 0;i < image_count;i++) 
+		{
+			GvkImageCreateInfo image_create_info{};
+			image_create_info.arrayLayers = 1;
+			image_create_info.extent.depth = 1;
+			image_create_info.extent.width = m_SwapChainCreateInfo.imageExtent.width;
+			image_create_info.extent.height = m_SwapChainCreateInfo.imageExtent.height;
+			image_create_info.format = m_SwapChainCreateInfo.imageFormat;
+			image_create_info.imageType = VK_IMAGE_TYPE_2D;
+			image_create_info.usage = m_SwapChainCreateInfo.imageUsage;
+			image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+			image_create_info.mipLevels = 1;
+			// This might not be right but we don't care now
+			image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+
+			m_BackBuffers[i] = ptr<Image>(new Image(vk_back_buffers[i],NULL,NULL,m_Device, image_create_info));
+		}
 		
 		//if the old swap chain is not empty,we need to destroy the image views
 		if (old_swap_chain != NULL) {
-			for (uint32 i = 0; i < m_BackBufferViews.size();i++) {
-				vkDestroyImageView(m_Device, m_BackBufferViews[i], nullptr);
+			for (uint32 i = 0; i < m_BackBuffers.size();i++) {
+				m_BackBuffers[i] = nullptr;
 			}
 			vkDestroySwapchainKHR(m_Device, old_swap_chain, nullptr);
 		}
 
-		m_BackBufferViews.resize(image_count);
+		m_BackBuffers.resize(image_count);
 		//create back buffer image views
 		for (uint32 i = 0; i < image_count;i++) {
-			VkImageViewCreateInfo info{};
-			info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			info.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-			info.flags = 0;
-			info.format = m_SwapChainCreateInfo.imageFormat;
-			info.image  = m_BackBuffers[i];
-			info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			//we only have 1 image in array,1 mip level
-			info.subresourceRange.baseArrayLayer = 0;
-			info.subresourceRange.baseMipLevel = 0;
-			info.subresourceRange.layerCount = 1;
-			info.subresourceRange.levelCount = 1;
-			info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-
-			vkCreateImageView(m_Device, &info, nullptr, &m_BackBufferViews[i]);
+			m_BackBuffers[i]->CreateView(VK_IMAGE_ASPECT_COLOR_BIT, 0, 1,
+				0, 1, VK_IMAGE_VIEW_TYPE_2D);
 		}
 		return true;
 	}
 	
 
 
-	opt<std::tuple<VkImage, VkImageView, VkSemaphore>> Context::AcquireNextImage(int64_t _timeout,VkFence fence) {
+	opt<std::tuple<ptr<gvk::Image>, VkSemaphore>> Context::AcquireNextImage(int64_t _timeout /*= -1*/,VkFence fence /*= NULL*/) {
 		gvk_assert(m_SwapChain != NULL);
 		uint32 timeout = _timeout < 0 ? UINT64_MAX : _timeout;
 		uint32 image_index;
-		if (vkAcquireNextImageKHR(m_Device, m_SwapChain, timeout, m_ImageAcquireSemaphore[m_BackBufferCount],
+		if (vkAcquireNextImageKHR(m_Device, m_SwapChain, timeout, m_ImageAcquireSemaphore[m_CurrentFrameIndex],
 			fence, &image_index) != VK_SUCCESS) 
 		{
 			return std::nullopt;
 		}
 		m_CurrentBackBufferImageIndex = image_index;
-		return std::make_tuple(m_BackBuffers[image_index],m_BackBufferViews[image_index],m_ImageAcquireSemaphore[m_CurrentFrameIndex]);
+		return std::make_tuple(m_BackBuffers[image_index], m_ImageAcquireSemaphore[m_CurrentFrameIndex]);
 	}
 
 	VkResult Context::Present(const SemaphoreInfo& semaphore)
@@ -675,10 +795,17 @@ namespace gvk {
 		fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fence_info.flags = flags;
 		VkFence fence;
-		if (!vkCreateFence(m_Device, &fence_info, nullptr, &fence) != VK_SUCCESS) {
+		if (vkCreateFence(m_Device, &fence_info, nullptr, &fence) != VK_SUCCESS) {
 			return std::nullopt;
 		}
 		return fence;
+	}
+
+
+	void Context::DestroyFence(VkFence fence)
+	{
+		gvk_assert(fence != NULL);
+		vkDestroyFence(m_Device, fence, nullptr);
 	}
 
 	uint32 Context::CurrentFrameIndex()
@@ -687,13 +814,13 @@ namespace gvk {
 	}
 }
 
-GVK_DEVICE_CREATE_INFO& GVK_DEVICE_CREATE_INFO::RequireQueue(VkFlags queue_flags, uint32 count, float priority /*= 1.0f*/)
+GvkDeviceCreateInfo& GvkDeviceCreateInfo::RequireQueue(VkFlags queue_flags, uint32 count, float priority /*= 1.0f*/)
 {
 	required_queues.push_back({ queue_flags,count,priority });
 	return *this;
 }
 
-GVK_DEVICE_CREATE_INFO& GVK_DEVICE_CREATE_INFO::AddDeviceExtension(GVK_DEVICE_EXTENSION extension)
+GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSION extension)
 {
 	switch (extension) {
 	case GVK_DEVICE_EXTENSION_RAYTRACING: 
@@ -704,6 +831,9 @@ GVK_DEVICE_CREATE_INFO& GVK_DEVICE_CREATE_INFO::AddDeviceExtension(GVK_DEVICE_EX
 	case GVK_DEVICE_EXTENSION_SWAP_CHAIN:
 		AddNotRepeatedElement(required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		break;
+	case GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS:
+		AddNotRepeatedElement(required_extensions, "VK_KHR_buffer_device_address");
+		break;
 	default:
 		gvk_assert(false);
 		break;
@@ -711,20 +841,20 @@ GVK_DEVICE_CREATE_INFO& GVK_DEVICE_CREATE_INFO::AddDeviceExtension(GVK_DEVICE_EX
 	return *this;
 }
 
-GVK_INSTANCE_CREATE_INFO& GVK_INSTANCE_CREATE_INFO::AddInstanceExtension(GVK_INSTANCE_EXTENSION ext)
+GvkInstanceCreateInfo& GvkInstanceCreateInfo::AddInstanceExtension(GVK_INSTANCE_EXTENSION ext)
 {
 	gvk_assert(ext < GVK_INSTANCE_EXTENSION_COUNT);
-	if (std::find(required_instance_extensions.begin(), required_instance_extensions.end(), ext) != required_instance_extensions.end()) 
+	if (std::find(required_instance_extensions.begin(), required_instance_extensions.end(), ext) == required_instance_extensions.end()) 
 	{
 		required_instance_extensions.push_back(ext);
 	}
 	return *this;
 }
 
-GVK_INSTANCE_CREATE_INFO& GVK_INSTANCE_CREATE_INFO::AddLayer(GVK_LAYER layer)
+GvkInstanceCreateInfo& GvkInstanceCreateInfo::AddLayer(GVK_LAYER layer)
 {
 	gvk_assert(layer < GVK_LAYER_COUNT);
-	if (std::find(required_layers.begin(),required_layers.end(),layer) != required_layers.end()) 
+	if (std::find(required_layers.begin(),required_layers.end(),layer) == required_layers.end()) 
 	{
 		required_layers.push_back(layer);
 	}

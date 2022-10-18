@@ -135,6 +135,8 @@ namespace gvk {
 		uint32_t              layerCount,
 		VkImageViewType       type);
 
+		View<VkImageView> GetViews();
+
 		~Image();
 	private:
 		Image(VkImage image,VmaAllocation alloc,VmaAllocator allocator,VkDevice device,const GvkImageCreateInfo& info);
@@ -146,6 +148,7 @@ namespace gvk {
 		VmaAllocator m_Allocator;
 		VkDevice m_Device;
 
-		std::unordered_map<GvkImageSubresourceRange, VkImageView> m_CreatedViews;
+		std::unordered_map<GvkImageSubresourceRange, VkImageView> m_ViewTable;
+		std::vector<VkImageView> m_Views;
 	};
 }

@@ -324,7 +324,11 @@ namespace gvk {
 		vk_create_info.pRasterizationState = &info.rasterization_state;
 		vk_create_info.pInputAssemblyState = &info.input_assembly_state;
 	
-		
+		//view port state
+		VkPipelineViewportStateCreateInfo viewport_state{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+		viewport_state.scissorCount = 1;
+		viewport_state.viewportCount = 1;
+		vk_create_info.pViewportState = &viewport_state;
 
 		//input vertex attributes
 		//TODO : currently we don't support multiple vertex bindings
@@ -340,6 +344,12 @@ namespace gvk {
 		{
 			return std::nullopt;
 		}
+
+		std::sort(vertex_input.begin(), vertex_input.end(), 
+			[](SpvReflectInterfaceVariable* lhs, SpvReflectInterfaceVariable* rhs) {
+				return lhs->location < rhs->location;
+			}
+		);
 
 		std::vector<VkVertexInputAttributeDescription> attributes(vertex_input.size());
 		uint32 total_stride = 0, current_offset = 0;
@@ -392,7 +402,7 @@ namespace gvk {
 				return false;
 			}
 
-			shader_stage_info.pName = shader->Name().c_str();
+			shader_stage_info.pName = shader->GetEntryPointName();
 			//we don't define any specialization
 			//for details see https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VkSpecializationInfo
 			shader_stage_info.pSpecializationInfo = NULL;
@@ -430,6 +440,9 @@ namespace gvk {
 		{
 			target_pass   = info.target_pass;
 			subpass_index = info.subpass_index;
+
+			vk_create_info.subpass = subpass_index;
+			vk_create_info.renderPass = target_pass->GetRenderPass();
 		}
 		else
 		{
@@ -522,7 +535,12 @@ namespace gvk {
 		{
 			return std::nullopt;
 		}
-		return ptr<RenderPass>(new RenderPass(pass,m_Device,info.subpassCount));
+		return ptr<RenderPass>(new RenderPass(pass,m_Device,info.subpassCount,info.attachmentCount));
+	}
+
+	uint32 RenderPass::GetAttachmentCount()
+	{
+		return m_AttachmentCount;
 	}
 
 	uint32 RenderPass::GetSubpassCount()
@@ -535,13 +553,33 @@ namespace gvk {
 		return m_Pass;
 	}
 
+	gvk::RenderPassInlineContent RenderPass::Begin(VkFramebuffer framebuffer, VkClearValue* clear_values, VkRect2D render_area,
+		VkViewport viewport, VkRect2D sissor, VkCommandBuffer command_buffer)
+	{
+		VkRenderPassBeginInfo begin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+		begin.clearValueCount = m_AttachmentCount;
+		begin.pClearValues = clear_values;
+		begin.framebuffer = framebuffer;
+		begin.renderArea = render_area;
+		begin.renderPass = m_Pass;
+		
+		vkCmdBeginRenderPass(command_buffer, &begin, VK_SUBPASS_CONTENTS_INLINE);
+
+		//we don't support multiple viewport now
+		vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+		vkCmdSetScissor(command_buffer, 0, 1, &sissor);
+
+		return RenderPassInlineContent(framebuffer, command_buffer);
+	}
+
 	RenderPass::~RenderPass()
 	{
 		vkDestroyRenderPass(m_Device, m_Pass, nullptr);
 	}
 
-	RenderPass::RenderPass(VkRenderPass render_pass, VkDevice device, uint32 subpass_count)
-	:m_Device(device),m_Pass(render_pass),m_SubpassCount(subpass_count){}
+	RenderPass::RenderPass(VkRenderPass render_pass, VkDevice device, uint32 subpass_count,
+		uint32 attachment_count)
+	:m_Device(device),m_Pass(render_pass),m_SubpassCount(subpass_count),m_AttachmentCount(attachment_count) {}
 
 	opt<ptr<RenderPass>> Pipeline::GetRenderPass()
 	{
@@ -798,6 +836,15 @@ namespace gvk {
 		return pool;
 	}
 
+	void RenderPassInlineContent::Record(std::function<void()> commands)
+	{
+		commands();
+
+		vkCmdEndRenderPass(m_CommandBuffer);
+	}
+
+	RenderPassInlineContent::RenderPassInlineContent(VkFramebuffer framebuffer,VkCommandBuffer command_buffer)
+		:m_Framebuffer(framebuffer),m_CommandBuffer(command_buffer) {}
 }
 
 GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState()
@@ -882,6 +929,7 @@ GvkGraphicsPipelineCreateInfo::DepthStencilStateInfo::DepthStencilStateInfo()
 	depthTestEnable = VK_TRUE;
 	depthWriteEnable = VK_TRUE;
 	depthCompareOp = VK_COMPARE_OP_LESS;
+	
 	//by default depth bound test is disabled
 	depthBoundsTestEnable = VK_FALSE;
 	//by default we don't use stencil test
@@ -917,7 +965,10 @@ GvkGraphicsPipelineCreateInfo::RasterizationStateCreateInfo::RasterizationStateC
 	depthBiasEnable = VK_FALSE;
 	depthBiasConstantFactor = 0.f;
 	depthBiasSlopeFactor = 0.f;
-	lineWidth = 0.f;
+	depthBiasClamp = 0.f;
+	//line width member must be 1.0f
+	//see https://vulkan.lunarg.com/doc/view/1.3.216.0/windows/1.3-extensions/vkspec.html#VUID-VkGraphicsPipelineCreateInfo-pDynamicStates-00749
+	lineWidth = 1.f;
 }
 
 
@@ -940,6 +991,9 @@ GvkRenderPassCreateInfo::GvkRenderPassCreateInfo()
 	pSubpasses = NULL;
 	dependencyCount = 0;
 	pDependencies = NULL;
+
+	//we assume depth stencil attachment is less than 1024
+	m_SubpassDepthReference.reserve(1024);
 }
 
 uint32 GvkRenderPassCreateInfo::AddAttachment(VkAttachmentDescriptionFlags flag, VkFormat format, VkSampleCountFlagBits sample_counts, VkAttachmentLoadOp load, VkAttachmentStoreOp store, VkAttachmentLoadOp stencil_load, VkAttachmentStoreOp stencil_store, VkImageLayout init_layout, VkImageLayout end_layout)
@@ -999,7 +1053,6 @@ void GvkRenderPassCreateInfo::AddSubpassDepthStencilAttachment(uint32 subpass_in
 	ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	subpass_attachment = ref;
-
 	subpass.pDepthStencilAttachment = &subpass_attachment;
 }
 
@@ -1035,4 +1088,16 @@ void GvkRenderPassCreateInfo::AddSubpassDependency(uint32_t srcSubpass, uint32_t
 
 	pDependencies = m_Dependencies.data();
 	dependencyCount = m_Dependencies.size();
+}
+
+GvkDescriptorSetWrite& GvkDescriptorSetWrite::Buffer(const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index /*= 0*/)
+{
+	buffers.push_back(GvkDescriptorSetBufferWrite{ name,array_index,buffer,offset,size });
+	return *this;
+}
+
+GvkDescriptorSetWrite& GvkDescriptorSetWrite::Image(const char* name, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index /*= 0*/)
+{
+	images.push_back(GvkDescriptorSetImageWrite{ name,array_index,sampler,image_view,layout });
+	return *this;
 }

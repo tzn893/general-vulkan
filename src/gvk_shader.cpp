@@ -300,4 +300,9 @@ namespace gvk {
 		return m_Name;
 	}
 
+	const char* Shader::GetEntryPointName()
+	{
+		return m_ReflectShaderModule.GetEntryPointName();
+	}
+
 }

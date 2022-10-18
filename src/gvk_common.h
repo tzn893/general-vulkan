@@ -49,6 +49,12 @@ namespace gvk {
 			return *this;
 		}
 
+		T& operator=(uint32 idx) {
+			gvk_assert(data != nullptr);
+			gvk_assert(start + idx < end);
+			return data[idx + start];
+		}
+
 		const T& operator[](uint32 idx) const {
 			gvk_assert(data != nullptr);
 			gvk_assert(start + idx < end);

@@ -4,6 +4,7 @@
 #include "gvk_command.h"
 #include "gvk_resource.h"
 #include "gvk_pipeline.h"
+#include "gvk_shader.h"
 
 struct GVK_VERSION {
 	uint32 v0, v1, v2;
@@ -25,10 +26,11 @@ enum GVK_DEVICE_EXTENSION {
 	//ray tracing contains 3 extensions 
 	//acceleration structure,ray tracing pipeline,deferred host operation
 	GVK_DEVICE_EXTENSION_RAYTRACING,
+	GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS,
 	GVK_DEVICE_EXTENSION_COUNT
 };
 
-struct GVK_DEVICE_CREATE_INFO {
+struct GvkDeviceCreateInfo {
 	//by default a present queue will be created
 	//other queues should be required when creating device
 	struct QueueRequireInfo {
@@ -37,19 +39,19 @@ struct GVK_DEVICE_CREATE_INFO {
 		float   priority;
 	};
 	std::vector<QueueRequireInfo> required_queues;
-	GVK_DEVICE_CREATE_INFO& RequireQueue(VkFlags queue_flags, uint32 count, float priority = 1.0f);
+	GvkDeviceCreateInfo& RequireQueue(VkFlags queue_flags, uint32 count, float priority = 1.0f);
 
 	std::vector<const char*> required_extensions;
-	GVK_DEVICE_CREATE_INFO& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
+	GvkDeviceCreateInfo& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
-	GVK_DEVICE_CREATE_INFO() {}
+	GvkDeviceCreateInfo() {}
 };
 
-struct GVK_INSTANCE_CREATE_INFO {
-	GVK_INSTANCE_CREATE_INFO& AddInstanceExtension(GVK_INSTANCE_EXTENSION ext);
+struct GvkInstanceCreateInfo {
+	GvkInstanceCreateInfo& AddInstanceExtension(GVK_INSTANCE_EXTENSION ext);
 	std::vector<GVK_INSTANCE_EXTENSION> required_instance_extensions;
 	
-	GVK_INSTANCE_CREATE_INFO& AddLayer(GVK_LAYER layer);
+	GvkInstanceCreateInfo& AddLayer(GVK_LAYER layer);
 	std::vector<GVK_LAYER> required_layers;
 };
 
@@ -68,7 +70,7 @@ namespace gvk {
 		/// <param name="info">the information adout the instance (enabled extensions etc.)</param>
 		/// <param name="error">if the initialization fails. return error message through this parameter</param>
 		/// <returns>if the initialization succeed</returns>
-		bool InitializeInstance(GVK_INSTANCE_CREATE_INFO& info,std::string* error);
+		bool InitializeInstance(GvkInstanceCreateInfo& info,std::string* error);
 		
 		/// <summary>
 		/// Initialize the device in the context
@@ -77,14 +79,37 @@ namespace gvk {
 		/// <param name="create">the info structure necessary for create of device</param>
 		/// <param name="error">if the initiailization fails return error message</param>
 		/// <returns>if the initialization succeed</returns>
-		bool InitializeDevice(const GVK_DEVICE_CREATE_INFO& create, std::string* error);
+		bool InitializeDevice(const GvkDeviceCreateInfo& create, std::string* error);
+
 
 		/// <summary>
-		/// Initialize the allocator for allocating buffer/image's memory
+		/// Create a shader, the binary code will be saved on disk with name "{file}.spv"
 		/// </summary>
-		/// <param name="vk_api_version">The current vulkan api version</param>
-		/// <returns>true if intialized successfully</returns>
-		bool IntializeMemoryAllocation(uint32 vk_api_version, std::string* error);
+		/// <param name="file">the source file of the shader</param>
+		/// <param name="macros">macros used to compile the shaders</param>
+		/// <param name="include_directories">the include directories of the shader</param>
+		/// <param name="include_directory_count">count of include directories</param>
+		/// <param name="search_pathes">search pathes of the shader</param>
+		/// <param name="search_path_count">count of search pathes of the shader</param>
+		/// <param name="error">error message generated if compile fails</param>
+		/// <returns>compiled shader with shader module created</returns>
+		opt<ptr<Shader>> CompileShader(const char* file,
+			const ShaderMacros& macros,
+			const char** include_directories, uint32 include_directory_count,
+			const char** search_pathes, uint32 search_path_count,
+			std::string* error);
+
+		/// <summary>
+		/// Load compiled shader binary code from file and create a shader module
+		/// </summary>
+		/// <param name="file">file name</param>
+		/// <param name="search_pathes">search pathes of the file</param>
+		/// <param name="search_path_count">count of search pathes</param>
+		/// <param name="error">error message</param>
+		/// <returns>loaded shader with shader module created</returns>
+		opt<ptr<Shader>> LoadShader(const char* file,
+			const char** search_pathes, uint32 search_path_count,
+			std::string* error);
 
 		/// <summary>
 		/// create the swap chain and present queue
@@ -134,6 +159,13 @@ namespace gvk {
 		/// <returns>The created semaphore</returns>
 		opt<VkSemaphore>  CreateVkSemaphore();
 
+
+		/// <summary>
+		/// Destroy the semaphore
+		/// </summary>
+		/// <param name="semaphore">target semaphore</param>
+		void			  DestroyVkSemaphore(VkSemaphore semaphore);
+
 		/// <summary>
 		/// Create a fence from current device.Return nullopt if creation fails
 		/// </summary>
@@ -141,6 +173,12 @@ namespace gvk {
 		/// <returns>the created fence</returns>
 		opt<VkFence> CreateFence(VkFenceCreateFlags flags);
 
+
+		/// <summary>
+		/// Destroy the fence
+		/// </summary>
+		/// <param name="fence">target fence</param>
+		void			  DestroyFence(VkFence fence);
 
 		/// <summary>
 		/// Get current frame buffer's index
@@ -156,7 +194,7 @@ namespace gvk {
 		/// <param name="timeout">The timeout time wait for this operation.If timeout is less than 0,host will wait for this forever</param>
 		/// <param name="fence">The fence to signal after it finishes</param>
 		/// <returns>the acquired back buffer image,the back buffer's view,the semaphore to wait</returns>
-		opt<std::tuple<VkImage, VkImageView, VkSemaphore>> AcquireNextImage(int64_t timeout = -1,VkFence fence = NULL);
+		opt<std::tuple<ptr<Image>, VkSemaphore>> AcquireNextImage(int64_t timeout = -1,VkFence fence = NULL);
 
 
 		/// <summary>
@@ -214,11 +252,38 @@ namespace gvk {
 		opt<ptr<DescriptorSetLayout>> CreateDescriptorSetLayout(const std::vector<ptr<Shader>>& target_shaders,
 			uint32 target_set,std::string* error);
 
-
+		/// <summary>
+		/// Create a descriptor allocator
+		/// </summary>
+		/// <returns>created descriptor allocator</returns>
 		ptr<DescriptorAllocator>	  CreateDescriptorAllocator();
-	
+
+		/// <summary>
+		/// Create a frame buffer for render pass
+		/// </summary>
+		/// <param name="render_pass">target render pass</param>
+		/// <param name="views">array of attachments in the frame buffer, count of views in the array should equal to RenderPass::GetAttachmentCount() or 1</param>
+		/// <param name="width">the width of image views</param>
+		/// <param name="height">the height of image views</param>
+		/// <param name="array_index">The count of layers used in frame buffer.Must be 1 when multiple views are used</param>
+		/// <param name="create_flags">Flag of creating frame buffer</param>
+		/// <returns>created frame buffer</returns>
+		opt<VkFramebuffer>			  CreateFrameBuffer(ptr<RenderPass> render_pass,const VkImageView* views,
+			uint32 width,uint32 height,uint32 layers = 1, VkFramebufferCreateFlags create_flags = 0);
+
+		/// <summary>
+		/// destroy the created frame buffer
+		/// </summary>
+		/// <param name="frame_buffer">frame buffer to destroy</param>
+		void						  DestroyFrameBuffer(VkFramebuffer frame_buffer);
+
+		View<ptr<Image>>			  GetBackBuffers();
+
 		~Context();
 	private:
+		
+		bool IntializeMemoryAllocation(bool addressable, uint32 vk_api_version, std::string* error);
+
 		bool AddInstanceExtension(GVK_INSTANCE_EXTENSION);
 		bool AddInstanceLayer(GVK_LAYER layer);
 
@@ -305,11 +370,11 @@ namespace gvk {
 		VkSurfaceKHR m_Surface = NULL;
 		//TODO : set back buffer count dynamically by surface's capacity
 		uint32 m_BackBufferCount = 3;
-		std::vector<VkImage> m_BackBuffers;
-		std::vector<VkImageView> m_BackBufferViews;
+		std::vector<ptr<Image>>  m_BackBuffers;
 
 		//allocator for memory allocation
 		VmaAllocator m_Allocator;
+		bool		 m_DeviceAddressable;
 
 		opt<uint32> FindSuitableQueueIndex(VkFlags flags,float priority);
 		opt<ptr<CommandQueue>> ConsumePrequiredQueue(uint32 idx);

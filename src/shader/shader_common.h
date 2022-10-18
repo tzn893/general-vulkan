@@ -3,7 +3,7 @@
 //for C++ project
 #ifdef __cplusplus
 
-#define pragma once
+#pragma once
 
 #include <vector>
 #include <string>
@@ -61,7 +61,7 @@ DEFINE_S_MATRIX(2)
 
 #define VERTEX_INPUT(VT) 
 
-#define VERTEX_ATTRIBUTE_BINDING(loca,binding,type,name) layout(location=loca) type name; 
+#define VERTEX_ATTRIBUTE_BINDING(loca,binding,type,name) layout(location=loca) in type name; 
 
 #define VERTEX_INPUT_END(VT) 
 

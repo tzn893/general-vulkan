@@ -2,7 +2,7 @@
 #include "gvk_context.h"
 
 namespace gvk {
-	bool Context::IntializeMemoryAllocation(uint32 vk_api_version, std::string* error)
+	bool Context::IntializeMemoryAllocation(bool addressable, uint32 vk_api_version, std::string* error)
 	{
 		VmaVulkanFunctions funcs{};
 		funcs.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
@@ -11,7 +11,7 @@ namespace gvk {
 		VmaAllocatorCreateInfo info{};
 		info.device = m_Device;
 		//for vkGetBufferDeviceAddress 
-		info.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		info.flags = addressable ? VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT : 0;
 		info.vulkanApiVersion = vk_api_version;
 		info.physicalDevice = m_PhyDevice;
 		info.pVulkanFunctions = &funcs;
@@ -23,6 +23,11 @@ namespace gvk {
 	opt<ptr<Buffer>> Context::CreateBuffer(VkBufferUsageFlags buffer_usage, uint64_t size, GVK_HOST_WRITE_PROPERTY write)
 	{
 		gvk_assert(m_Allocator != NULL);
+		//can't create buffer with device address from a no addressable device
+		if ((buffer_usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) && !m_DeviceAddressable)
+		{
+			return std::nullopt;
+		}
 
 		VkBufferCreateInfo buffer_create_info{};
 		buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -157,7 +162,7 @@ namespace gvk {
 		range.range.layerCount = layerCount;
 		range.type = type;
 
-		if (auto res = m_CreatedViews.find(range);res != m_CreatedViews.end()) 
+		if (auto res = m_ViewTable.find(range);res != m_ViewTable.end()) 
 		{
 			//return the image view already created
 			return res->second;
@@ -181,19 +186,31 @@ namespace gvk {
 			return std::nullopt;
 		}
 
-		m_CreatedViews[range] = view;
+		m_ViewTable[range] = view;
+		m_Views.push_back(view);
+
 		return view;
+	}
+
+	gvk::View<VkImageView> Image::GetViews()
+	{
+		return View(m_Views);
 	}
 
 	Image::~Image()
 	{
 		//destroy create image views
-		for (auto view : m_CreatedViews) 
+		for (auto view : m_ViewTable)
 		{
 			vkDestroyImageView(m_Device, view.second, nullptr);
 		}
 
-		vmaDestroyImage(m_Allocator, m_Image,m_Allocation);
+		//if the image has a allocator and allocation
+		//the image must not be created from vma allocation(e.g. acquired from swap chain)
+		//so we do nothing
+		if (m_Allocator && m_Allocation) {
+			vmaDestroyImage(m_Allocator, m_Image, m_Allocation);
+		}
 	}
 
 	Image::Image(VkImage image, VmaAllocation alloc, VmaAllocator allocator,VkDevice device, const GvkImageCreateInfo& info):

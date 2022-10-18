@@ -2,6 +2,7 @@
 #include "gvk_common.h"
 #include "gvk_shader.h"
 #include "shader/shader_common.h"
+#include <functional>
 
 namespace gvk {
 	//descriptor set layout is created from 
@@ -28,20 +29,38 @@ namespace gvk {
 		VkDevice									m_Device;
 	};
 
+	class RenderPassInlineContent 
+	{
+		friend class RenderPass;
+	public:
+		void Record(std::function<void()> commands);
+	private:
+		RenderPassInlineContent(VkFramebuffer framebuffer,VkCommandBuffer command_buffer);
+
+		VkFramebuffer	m_Framebuffer;
+		VkCommandBuffer m_CommandBuffer;
+	};
+
 	class RenderPass {
 		friend class Context;
 	public:
-		uint32 GetSubpassCount();
-		VkRenderPass GetRenderPass();
+		uint32					GetAttachmentCount();
+		uint32					GetSubpassCount();
+		VkRenderPass			GetRenderPass();
+
+		RenderPassInlineContent	Begin(VkFramebuffer framebuffer,VkClearValue* clear_values,
+			VkRect2D render_area,VkViewport viewport,VkRect2D sissor,VkCommandBuffer command_buffer);
 
 		~RenderPass();
 	private:
-		RenderPass(VkRenderPass render_pass,VkDevice device,uint32 subpass_count);
+		RenderPass(VkRenderPass render_pass,VkDevice device,uint32 subpass_count,
+			uint32 attachment_count);
 
 		VkRenderPass m_Pass;
 		VkDevice	 m_Device;
 
 		uint32 m_SubpassCount;
+		uint32 m_AttachmentCount;
 	};
 }
 
@@ -154,7 +173,7 @@ struct GvkRenderPassCreateInfo : public VkRenderPassCreateInfo
 								 VkPipelineStageFlags    dstStageMask,
 								 VkAccessFlags           srcAccessMask,
 								 VkAccessFlags           dstAccessMask,
-								 VkDependencyFlags       dependencyFlags);
+								 VkDependencyFlags       dependencyFlags = 0);
 
 	std::vector<VkSubpassDescription>				m_Subpasses;
 	std::vector<VkAttachmentReference>				m_SubpassDepthReference;
