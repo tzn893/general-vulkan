@@ -72,6 +72,10 @@ struct GvkDescriptorLayoutHint
 };
 
 struct GvkGraphicsPipelineCreateInfo {
+
+	GvkGraphicsPipelineCreateInfo() {}
+	
+
 	ptr<gvk::Shader> vertex_shader;
 
 	//TODO : currently we don't support tessellation or geometry stage 
@@ -134,6 +138,16 @@ struct GvkGraphicsPipelineCreateInfo {
 		InputAssembly();
 	} input_assembly_state;
 
+	/// <summary>
+	/// constructor of GvkGraphicsPipelineCreateInfo
+	/// </summary>
+	/// <param name="vert">the vertex shader of graphics pipeline</param>
+	/// <param name="frag">the fragment shader of graphics pipeline</param>
+	/// <param name="render_pass">the render pass of graphics pipeline</param>
+	/// <param name="subpass_index">the index of subpass in render pass of graphics pipeline</param>
+	/// <param name="blend_states">pointer to array of blend states of graphics pipeline,the array size must equal to count of output of fragment shader</param>
+	GvkGraphicsPipelineCreateInfo(ptr<gvk::Shader> vert, ptr<gvk::Shader> frag, ptr<gvk::RenderPass> render_pass,
+		uint32 subpass_index, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states);
 
 	GvkDescriptorLayoutHint descriptor_layuot_hint;
 
@@ -210,6 +224,19 @@ struct GvkDescriptorSetWrite
 	GvkDescriptorSetWrite& Image(const char* name,VkSampler sampler,VkImageView image_view,VkImageLayout layout,uint32 array_index = 0);
 };
 
+class GvkPushConstant 
+{
+	friend class Pipeline;
+public:
+	void Update(VkCommandBuffer cmd_buffer,const void* data);
+	
+	GvkPushConstant(VkPushConstantRange range, VkPipelineLayout layout);
+	GvkPushConstant() {}
+private:
+	VkPushConstantRange range;
+	VkPipelineLayout    layout;
+};
+
 namespace gvk{
 	//It's recommended that one thread one descriptor allocator
 	class DescriptorAllocator 
@@ -266,6 +293,8 @@ namespace gvk{
 
 		VkPipeline								GetPipeline();
 		VkPipelineLayout						GetPipelineLayout();
+
+		opt<GvkPushConstant>					GetPushConstantRange(const char* name);
 
 		~Pipeline();
 	private:

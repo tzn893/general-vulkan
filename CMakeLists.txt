@@ -1,6 +1,7 @@
 #general vulkan
 cmake_minimum_required(VERSION 3.24)
 set(CMAKE_CXX_STANDARD 17)
+option(GVK_ENABLE_SAMPLE "enable building samples" off)
 
 project(gvk)
 
@@ -16,4 +17,7 @@ set(GVK_SPIRV_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Reflect CACHE INTERNAL "
 set(GVK_SPIRV_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Reflect/spirv_reflect.cpp CACHE INTERNAL GVK_SPIRV_SOURCE"")
 
 add_subdirectory(src)
-add_subdirectory(test)
+
+if(GVK_ENABLE_SAMPLE)
+	add_subdirectory(sample)
+endif()

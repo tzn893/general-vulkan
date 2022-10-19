@@ -612,6 +612,16 @@ namespace gvk {
 		return m_PipelineLayout;
 	}
 
+	opt<GvkPushConstant> Pipeline::GetPushConstantRange(const char* name)
+	{
+		if (auto res = m_PushConstants.find(name); res != m_PushConstants.end()) 
+		{
+			GvkPushConstant constant(res->second, m_PipelineLayout);
+			return constant;
+		}
+		return std::nullopt;
+	}
+
 	Pipeline::~Pipeline()
 	{
 		vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
@@ -971,6 +981,17 @@ GvkGraphicsPipelineCreateInfo::RasterizationStateCreateInfo::RasterizationStateC
 	lineWidth = 1.f;
 }
 
+GvkGraphicsPipelineCreateInfo::GvkGraphicsPipelineCreateInfo(ptr<gvk::Shader> vert, ptr<gvk::Shader> frag, ptr<gvk::RenderPass> render_pass, uint32 subpass_index,
+	const GvkGraphicsPipelineCreateInfo::BlendState* blend_states)
+ :vertex_shader(vert),fragment_shader(frag),target_pass(render_pass),subpass_index(subpass_index) 
+{	
+	uint32 fragment_output_count = frag->GetOutputVariableCount();
+	frame_buffer_blend_state.Resize(fragment_output_count);
+	for (uint32 i = 0;i < fragment_output_count;i++)
+	{
+		frame_buffer_blend_state.Set(i, blend_states[i]);
+	}
+}
 
 void GvkDescriptorLayoutHint::AddDescriptorSetLayout(const ptr<gvk::DescriptorSetLayout>& layout)
 {
@@ -1101,3 +1122,12 @@ GvkDescriptorSetWrite& GvkDescriptorSetWrite::Image(const char* name, VkSampler 
 	images.push_back(GvkDescriptorSetImageWrite{ name,array_index,sampler,image_view,layout });
 	return *this;
 }
+
+void GvkPushConstant::Update(VkCommandBuffer cmd_buffer,const void* data)
+{
+	vkCmdPushConstants(cmd_buffer, layout, range.stageFlags, range.offset, range.size, data);
+}
+
+GvkPushConstant::GvkPushConstant(VkPushConstantRange range, VkPipelineLayout layout)
+:range(range),layout(layout) {}
+

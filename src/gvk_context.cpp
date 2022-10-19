@@ -239,7 +239,10 @@ namespace gvk {
 		{
 			vkDestroySemaphore(m_Device, semaphore, nullptr);
 		}
-
+		for (auto& image : m_BackBuffers) 
+		{
+			image = nullptr;
+		}
 		for (auto back_buffer : m_BackBuffers) {
 			back_buffer = nullptr;
 		}
@@ -249,15 +252,15 @@ namespace gvk {
 		if (m_Surface) {
 			vkDestroySurfaceKHR(m_VkInstance, m_Surface, nullptr);
 		}
+		if (m_Allocator != NULL) {
+			vmaDestroyAllocator(m_Allocator);
+		}
 		if (m_Device != NULL) {
 			vkDestroyDevice(m_Device, nullptr);
 		}
 		if (m_VkInstance != NULL) {
 			//physics device will be destroyed at the same time 
 			vkDestroyInstance(m_VkInstance, nullptr);
-		}
-		if (m_Allocator != NULL) {
-			vmaDestroyAllocator(m_Allocator);
 		}
 	}
 

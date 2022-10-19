@@ -1,18 +1,30 @@
 #include "gvk.h"
 #include "shader.h"
+#include <chrono>
+
 
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 constexpr VkFormat back_buffer_foramt = VK_FORMAT_B8G8R8A8_UNORM;
 
+float current_time() {
+	using namespace std::chrono;
+	static uint64_t start = 0;
+	if (start == 0) start = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+	uint64_t ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+	return (float)(ms - start) / 1000.f;
+}
+
 int main() 
 {
 	ptr<gvk::Window> window;
-	require(gvk::Window::Create(1000, 800, "triangle"), window);
+	require(gvk::Window::Create(600, 600, "triangle"), window);
 
 	std::string error;
 	ptr<gvk::Context> context;
 	require(gvk::Context::CreateContext("triangle", GVK_VERSION{ 1,0,0 }, VK_API_VERSION_1_3 , window, &error),
 		context);
+
+	current_time();
 
 	GvkInstanceCreateInfo instance_create;
 	instance_create.AddInstanceExtension(GVK_INSTANCE_EXTENSION_DEBUG);
@@ -62,16 +74,10 @@ int main()
 		return 0;
 	}
 	
-	GvkGraphicsPipelineCreateInfo graphic_pipeline_create;
-	graphic_pipeline_create.vertex_shader = vert.value();
-	graphic_pipeline_create.fragment_shader = frag.value();
-
+	std::vector<GvkGraphicsPipelineCreateInfo::BlendState> blend_states(1, GvkGraphicsPipelineCreateInfo::BlendState());;
+	GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, 0, blend_states.data());
 	graphic_pipeline_create.rasterization_state.cullMode = VK_CULL_MODE_NONE;
-	graphic_pipeline_create.frame_buffer_blend_state.Resize(1);
-	graphic_pipeline_create.frame_buffer_blend_state.Set(0, GvkGraphicsPipelineCreateInfo::BlendState());
-	
-	graphic_pipeline_create.target_pass = render_pass;
-	graphic_pipeline_create.subpass_index = 0;
+
 
 	ptr<gvk::Pipeline> graphic_pipeline;
 	require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);
@@ -87,13 +93,16 @@ int main()
 	}
 
 	TriangleVertex vertexs[] = {
-		 {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+		 {{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}},
+		{{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f}},
+		{{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
+		{{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f}}
 	};
 	ptr<gvk::Buffer> buffer;
 	require(context->CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, sizeof(vertexs),
-		GVK_HOST_WRITE_SEQUENTIAL), buffer);
+		GVK_HOST_WRITE_RANDOM), buffer);
 	buffer->Write(vertexs, 0, sizeof(vertexs));
 
 	ptr<gvk::CommandQueue> queue;
@@ -106,7 +115,12 @@ int main()
 	VkSemaphore color_output_finish;
 	require(context->CreateVkSemaphore(),color_output_finish);
 
+	GvkPushConstant push_constant_time, push_constant_rotation;
+	require(graphic_pipeline->GetPushConstantRange("time"), push_constant_time);
+	require(graphic_pipeline->GetPushConstantRange("rotation"), push_constant_rotation);
 
+
+	uint32 i = 0;
 	while (!window->ShouldClose()) 
 	{
 		window->UpdateWindow();
@@ -161,6 +175,16 @@ int main()
 			cmd_buffer
 		).Record([&]() {
 			vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipeline());
+			
+			float time = current_time();
+			push_constant_time.Update(cmd_buffer, &time);
+
+			mat3 rotation_mat;
+			rotation_mat.a00 =  sin(time); rotation_mat.a10 = cos(time); rotation_mat.a20 = 0;
+			rotation_mat.a01 = -cos(time); rotation_mat.a11 = sin(time); rotation_mat.a21 = 0;
+			rotation_mat.a02 =  0; rotation_mat.a12 =  0; rotation_mat.a22 = 1;
+			push_constant_rotation.Update(cmd_buffer, &rotation_mat);
+
 
 			VkBuffer vbuffers[] = { buffer->GetBuffer() };
 			VkDeviceSize offsets[] = { 0 };
@@ -169,6 +193,7 @@ int main()
 			vkCmdDraw(cmd_buffer, gvk_count_of(vertexs), 1, 0, 0);
 			}
 		);
+
 
 		vkEndCommandBuffer(cmd_buffer);
 
@@ -182,4 +207,11 @@ int main()
 
 		queue->StallForDevice();
 	}
+
+	for (auto fb : frame_buffers) context->DestroyFrameBuffer(fb);
+	context->DestroyVkSemaphore(color_output_finish);
+
+	buffer = nullptr;
+	graphic_pipeline = nullptr;
+	window = nullptr;
 }
