@@ -22,6 +22,75 @@ struct GvkImageCreateInfo {
 	VkImageTiling            tiling;
 	VkImageUsageFlags        usage;
 	VkImageLayout            initialLayout;
+
+	/// <summary>
+	/// the creation info of a image with 1 array element, 1 depth and 1 mip levels
+	/// </summary>
+	/// <param name="format">format of the image</param>
+	/// <param name="width">width of the image</param>
+	/// <param name="height">height of the image</param>
+	/// <param name="usage">usage of the image</param>
+	/// <returns>image create info</returns>
+	static GvkImageCreateInfo Image2D(VkFormat format,uint32 width,uint32 height,
+		VkImageUsageFlags usage);
+
+	static GvkImageCreateInfo MippedImage2D(VkFormat format,uint32 width,uint32 height,uint32 miplevels,VkImageUsageFlags usages);
+};
+
+
+namespace gvk 
+{
+	class Image;
+	class Buffer;
+}
+
+//a helper structure for barrier commands
+struct GvkBarrier 
+{
+
+	/// <summary>
+	/// Create a image barrier for every aspect and every subresources
+	/// </summary>
+	/// <param name="image">the target image</param>
+	/// <param name="init_layout">the old layout of the image</param>
+	/// <param name="final_layout">the new layout of the image</param>
+	/// <param name="src_access_flags">the source access mask of the image(What did you do to the image in the old layout)</param>
+	/// <param name="dst_access_flags">the destination mask of the image(What will you do to the image in the new layout)</param>
+	/// <returns>image barrier</returns>
+	GvkBarrier& ImageBarrier(ptr<gvk::Image> image,VkImageLayout init_layout,VkImageLayout final_layout,
+		VkAccessFlags src_access_flags,VkAccessFlags dst_access_flags);
+
+	/// <summary>
+	/// Create a buffer memory barrier for the whole buffer
+	/// </summary>
+	/// <param name="buffer">the target buffer</param>
+	/// <param name="src_access_flags">the source access mask of the image(What did you do to the image in the old layout)</param>
+	/// <param name="dst_access_flags">the destination mask of the image(What will you do to the image in the new layout)</param>
+	/// <returns>buffer barrier</returns>
+	GvkBarrier& BufferBarrier(ptr<gvk::Buffer> buffer, VkAccessFlags src_access_flags, VkAccessFlags dst_access_flags);
+
+	/// <summary>
+	/// 
+	/// </summary>
+	/// <param name="src_access_flags"></param>
+	/// <param name="dst_access_flags"></param>
+	/// <returns></returns>
+	GvkBarrier& MemoryBarrier(VkAccessFlags src_access_flags,VkAccessFlags dst_access_flags);
+
+	/// <summary>
+	/// record a barrier command to command buffer.
+	/// this function should only be called once,then GvkBarrier should be discarded
+	/// </summary>
+	/// <param name="cmd_buffer">target command buffer</param>
+	/// <param name="flag"></param>
+	void Emit(VkCommandBuffer cmd_buffer,VkDependencyFlags flag = 0);
+
+	GvkBarrier(VkPipelineStageFlags src,VkPipelineStageFlags dst);
+
+	std::vector<VkImageMemoryBarrier> image_memory_barriers;
+	std::vector<VkBufferMemoryBarrier> buffer_memory_barriers;
+	std::vector<VkMemoryBarrier>	  memory_barriers;
+	VkPipelineStageFlags src_stage, dst_stage;
 };
 
 
@@ -83,6 +152,12 @@ namespace gvk {
 		/// </summary>
 		/// <returns>the device address</returns>
 		VkDeviceAddress GetAddress();
+
+		/// <summary>
+		/// Get size of the buffer
+		/// </summary>
+		/// <returns>return buffer size</returns>
+		uint64_t		GetSize();
 
 		~Buffer();
 	private:

@@ -7,7 +7,7 @@
 VERTEX_INPUT(TriangleVertex)
 
 VERTEX_ATTRIBUTE(0, vec2, pos)
-VERTEX_ATTRIBUTE(1, vec3, color)
+VERTEX_ATTRIBUTE(1, vec2, uv)
 
 VERTEX_INPUT_END(TriangleVertex)
 

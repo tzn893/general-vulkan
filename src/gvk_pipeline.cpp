@@ -476,7 +476,7 @@ namespace gvk {
 		
 		return ptr<Pipeline>(new Pipeline(pipeline,pipeline_layout,
 			descriptor_helper.internal_layout,descriptor_helper.push_constant_table,
-			target_pass,subpass_index,m_Device));
+			target_pass,subpass_index,VK_PIPELINE_BIND_POINT_GRAPHICS,m_Device));
 	}
 
 	opt<ptr<gvk::Pipeline>> Context::CreateComputePipeline(const GvkComputePipelineCreateInfo& info)
@@ -524,7 +524,7 @@ namespace gvk {
 
 		return ptr<Pipeline>(new Pipeline(compute_pipeline, layout,
 			helper.internal_layout, helper.push_constant_table,
-			nullptr,0, m_Device));
+			nullptr,0,VK_PIPELINE_BIND_POINT_COMPUTE, m_Device));
 	}
 
 	opt<ptr<gvk::RenderPass>> Context::CreateRenderPass(const GvkRenderPassCreateInfo& info)
@@ -628,9 +628,10 @@ namespace gvk {
 		vkDestroyPipeline(m_Device, m_Pipeline, nullptr);
 	}
 
-	Pipeline::Pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::vector<ptr<DescriptorSetLayout>>& descriptor_set_layouts,
-		const std::unordered_map<std::string,VkPushConstantRange>& push_constants, ptr<RenderPass> render_pass, uint32 subpass_index, VkDevice device) :m_Pipeline(pipeline),m_PipelineLayout(layout),m_InternalDescriptorSetLayouts(descriptor_set_layouts),m_PushConstants(push_constants),
-	m_RenderPass(render_pass),m_SubpassIndex(subpass_index),m_Device(device) {}
+	Pipeline::Pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::vector<ptr<DescriptorSetLayout>>& descriptor_set_layouts, const std::unordered_map<std::string,VkPushConstantRange>& push_constants, ptr<RenderPass> render_pass,uint32 subpass_index,VkPipelineBindPoint bind_point,VkDevice device) 
+		:m_Pipeline(pipeline),m_PipelineLayout(layout),m_InternalDescriptorSetLayouts(descriptor_set_layouts),m_PushConstants(push_constants),
+	m_RenderPass(render_pass),m_SubpassIndex(subpass_index),m_Device(device),m_BindPoint(bind_point) 
+	{}
 
 	VkDescriptorSet DescriptorSet::GetDescriptorSet()
 	{
@@ -642,94 +643,17 @@ namespace gvk {
 		return m_Layout->GetSetID();
 	}
 
-	void DescriptorSet::Write(const GvkDescriptorSetWrite& info)
+	opt<SpvReflectDescriptorBinding*> DescriptorSet::FindBinding(const char* name)
 	{
 		auto bindings = m_Layout->GetDescriptorSetBindings();
-		auto find_binding = [&](const char* name)->opt<SpvReflectDescriptorBinding*> {
-			for (uint32 i = 0; i < bindings.size(); i++)
-			{
-				if (strcmp(bindings[i]->name, name) == 0) 
-				{
-					return bindings[i];
-				}
-			}
-			return std::nullopt;
-		};
-
-		std::vector<VkWriteDescriptorSet> writes;
-		//prevent trigger vector's resize which will make the pointers invalid
-		std::vector<VkDescriptorBufferInfo> buffer_infos(info.buffers.size());
-		std::vector<VkDescriptorImageInfo>	image_infos(info.images.size());
-		for (uint32 i = 0;i < info.buffers.size();i++)
+		for (uint32 i = 0; i < bindings.size(); i++)
 		{
-			auto& buffer = info.buffers[i];
-			SpvReflectDescriptorBinding* binding = nullptr;
-			if (auto v= find_binding(buffer.name);v.has_value()) 
+			if (strcmp(bindings[i]->name, name) == 0)
 			{
-				binding = v.value();
+				return bindings[i];
 			}
-			else 
-			{
-				//TODO : currently we ignore the invalid write operation
-				continue;
-			}
-
-			
-			VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-			write.descriptorType = (VkDescriptorType)binding->descriptor_type;
-			//TODO : currently we only support write one buffer at a time
-			write.descriptorCount = 1;
-			write.dstArrayElement = buffer.array_index;
-			write.dstBinding = binding->binding;
-			write.dstSet = m_Set;
-			
-			VkDescriptorBufferInfo buffer_info;
-			buffer_info.buffer = buffer.buffer;
-			buffer_info.offset = buffer.offset;
-			buffer_info.range = buffer.size;
-
-			buffer_infos[i] = buffer_info;
-
-			write.pBufferInfo = buffer_infos.data() + i;
-
-			writes.push_back(write);
 		}
-
-		for (uint32 i = 0;i < info.images.size(); i++)
-		{
-			auto& image = info.images[i];
-			SpvReflectDescriptorBinding* binding = nullptr;
-			if (auto v = find_binding(image.name); v.has_value())
-			{
-				binding = v.value();
-			}
-			else
-			{
-				//TODO : currently we ignore the invalid write operation
-				continue;
-			}
-
-			VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
-			write.descriptorType = (VkDescriptorType)binding->descriptor_type;
-			//TODO : currently we only support write one buffer at a time
-			write.descriptorCount = 1;
-			write.dstArrayElement = image.array_index;
-			write.dstBinding = binding->binding;
-			write.dstSet = m_Set;
-
-			VkDescriptorImageInfo image_info{};
-			image_info.imageLayout = image.layout;
-			image_info.imageView = image.image;
-			image_info.sampler = image.sampler;
-
-			image_infos[i] = image_info;
-
-			write.pImageInfo = image_infos.data() + i;
-
-			writes.push_back(write);
-		}
-
-		vkUpdateDescriptorSets(m_Device, writes.size(), writes.data(), 0, NULL);
+		return std::nullopt;
 	}
 
 	DescriptorSet::~DescriptorSet()
@@ -830,13 +754,14 @@ namespace gvk {
 			}
 			size.descriptorCount = 0;
 		}
-		m_MaxSetCount = 0;
 
 		VkDescriptorPoolCreateInfo info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
 		info.poolSizeCount = target_pools.size();
 		info.pPoolSizes = target_pools.data();
 		info.maxSets = m_MaxSetCount;
-		
+
+		m_MaxSetCount = 0;
+
 		VkDescriptorPool pool;
 		if (vkCreateDescriptorPool(m_Device, &info, nullptr, &pool) != VK_SUCCESS)
 		{
@@ -1111,15 +1036,92 @@ void GvkRenderPassCreateInfo::AddSubpassDependency(uint32_t srcSubpass, uint32_t
 	dependencyCount = m_Dependencies.size();
 }
 
-GvkDescriptorSetWrite& GvkDescriptorSetWrite::Buffer(const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index /*= 0*/)
+GvkDescriptorSetWrite& GvkDescriptorSetWrite::BufferWrite(ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type,uint32 binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index /*= 0*/)
 {
-	buffers.push_back(GvkDescriptorSetBufferWrite{ name,array_index,buffer,offset,size });
+	buffers.push_back(GvkDescriptorSetBufferWrite{ set->GetDescriptorSet(),descriptor_type,binding,array_index,buffer,offset,size});
 	return *this;
 }
 
-GvkDescriptorSetWrite& GvkDescriptorSetWrite::Image(const char* name, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index /*= 0*/)
+GvkDescriptorSetWrite& GvkDescriptorSetWrite::BufferWrite(ptr<gvk::DescriptorSet> set, const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index /*= 0*/)
 {
-	images.push_back(GvkDescriptorSetImageWrite{ name,array_index,sampler,image_view,layout });
+	auto binding = set->FindBinding(name);
+	if (binding.has_value()) 
+	{
+		BufferWrite(set,(VkDescriptorType)binding.value()->descriptor_type, binding.value()->binding, buffer, offset, size, array_index);
+	}
+	return *this;
+}
+
+void GvkDescriptorSetWrite::Emit(VkDevice device)
+{
+	std::vector<VkWriteDescriptorSet> writes;
+
+	std::vector<VkDescriptorBufferInfo> buffer_infos(buffers.size());
+	std::vector<VkDescriptorImageInfo>	image_infos(images.size());
+	for (uint32 i = 0; i < buffers.size(); i++)
+	{
+		auto& buffer = buffers[i];
+
+		VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		write.descriptorType = buffer.type;
+		//TODO : currently we only support write one buffer at a time
+		write.descriptorCount = 1;
+		write.dstArrayElement = buffer.array_index;
+		write.dstBinding = buffer.binding;
+		write.dstSet = buffer.desc_set;
+
+		VkDescriptorBufferInfo buffer_info;
+		buffer_info.buffer = buffer.buffer;
+		buffer_info.offset = buffer.offset;
+		buffer_info.range = buffer.size;
+
+		buffer_infos[i] = buffer_info;
+
+		write.pBufferInfo = buffer_infos.data() + i;
+
+		writes.push_back(write);
+	}
+
+	for (uint32 i = 0; i < images.size(); i++)
+	{
+		auto& image = images[i];
+
+		VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		write.descriptorType = (VkDescriptorType)image.type;
+		//TODO : currently we only support write one buffer at a time
+		write.descriptorCount = 1;
+		write.dstArrayElement = image.array_index;
+		write.dstBinding = image.binding;
+		write.dstSet = image.desc_set;
+
+		VkDescriptorImageInfo image_info{};
+		image_info.imageLayout = image.layout;
+		image_info.imageView = image.image;
+		image_info.sampler = image.sampler;
+
+		image_infos[i] = image_info;
+
+		write.pImageInfo = image_infos.data() + i;
+
+		writes.push_back(write);
+	}
+
+	vkUpdateDescriptorSets(device, writes.size(), writes.data(), 0, NULL);
+}
+
+GvkDescriptorSetWrite& GvkDescriptorSetWrite::ImageWrite(ptr<gvk::DescriptorSet> set, VkDescriptorType descriptor_type, uint32 binding, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index /*= 0*/)
+{
+	images.push_back(GvkDescriptorSetImageWrite{ set->GetDescriptorSet(),descriptor_type,binding,array_index,sampler,image_view,layout});
+	return *this;
+}
+
+GvkDescriptorSetWrite& GvkDescriptorSetWrite::ImageWrite(ptr<gvk::DescriptorSet> set, const char* name, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index /*= 0*/)
+{
+	auto binding = set->FindBinding(name);
+	if (binding.has_value())
+	{
+		ImageWrite(set,(VkDescriptorType)binding.value()->descriptor_type, binding.value()->binding, sampler, image_view, layout, array_index);
+	}
 	return *this;
 }
 

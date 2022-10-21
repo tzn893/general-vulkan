@@ -1,11 +1,11 @@
 #version 450
 #include "shader.h"
 
-layout(location = 0) out vec3 o_color;
+layout(location = 0) out vec2 o_uv;
 
 void main()
 {
-    o_color = vec3(color * (sin(time) * .5 + .5));
+    o_uv = uv;
     vec3 pos = rotation * vec3(pos,1.f);
     gl_Position = vec4(pos,1.0f);
 }

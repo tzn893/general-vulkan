@@ -101,6 +101,11 @@ namespace gvk {
 	}
 
 	
+	uint64_t Buffer::GetSize()
+	{
+		return m_BufferSize;
+	}
+
 	Buffer::~Buffer()
 	{
 		vmaDestroyBuffer(m_Allocator, m_Buffer, m_Allocation);
@@ -154,6 +159,13 @@ namespace gvk {
 	opt<VkImageView> Image::CreateView(VkImageAspectFlags aspectMask, uint32_t baseMipLevel, uint32_t levelCount, 
 		uint32_t baseArrayLayer, uint32_t layerCount,VkImageViewType type)
 	{
+		VkImageAspectFlags flags = GetAllAspects(m_Info.format);
+		if ((flags & aspectMask) != aspectMask) 
+		{
+			//invalid aspect mask
+			return std::nullopt;
+		}
+
 		GvkImageSubresourceRange range{};
 		range.range.aspectMask = aspectMask;
 		range.range.baseMipLevel = baseMipLevel;
@@ -223,3 +235,102 @@ bool GvkImageSubresourceRange::operator==(const GvkImageSubresourceRange& other)
 	return memcmp(&range, &other.range, sizeof(range)) == 0
 		&& type == other.type;
 }
+
+GvkImageCreateInfo GvkImageCreateInfo::Image2D(VkFormat format, uint32 width, uint32 height,
+	VkImageUsageFlags usage)
+{
+	GvkImageCreateInfo create_info{};
+	create_info.arrayLayers = 1;
+	create_info.mipLevels = 1;
+	create_info.imageType = VK_IMAGE_TYPE_2D;
+	create_info.extent.depth = 1;
+	create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	create_info.flags = 0;
+
+
+	create_info.format = format;
+	create_info.extent.width = width;
+	create_info.extent.height = height;
+	create_info.usage = usage;
+
+	return create_info;
+}
+
+GvkImageCreateInfo GvkImageCreateInfo::MippedImage2D(VkFormat format, uint32 width, uint32 height, uint32 miplevels, VkImageUsageFlags usages)
+{
+	GvkImageCreateInfo create_info = Image2D(format, width, height, usages);
+	create_info.mipLevels = miplevels;
+
+	return create_info;
+}
+
+
+GvkBarrier& GvkBarrier::ImageBarrier(ptr<gvk::Image> image, VkImageLayout init_layout, VkImageLayout final_layout,
+	VkAccessFlags src_access_flags, VkAccessFlags dst_access_flags)
+{
+	VkImageMemoryBarrier image_memory_barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	image_memory_barrier.srcAccessMask = src_access_flags;
+	image_memory_barrier.dstAccessMask = dst_access_flags;
+
+	image_memory_barrier.newLayout = final_layout;
+	image_memory_barrier.oldLayout = init_layout;
+
+	image_memory_barrier.subresourceRange.aspectMask = gvk::GetAllAspects(image->Info().format);
+	image_memory_barrier.subresourceRange.baseArrayLayer = 0;
+	image_memory_barrier.subresourceRange.layerCount = image->Info().arrayLayers;
+	image_memory_barrier.subresourceRange.baseMipLevel = 0;
+	image_memory_barrier.subresourceRange.levelCount = image->Info().mipLevels;
+
+	image_memory_barrier.image = image->GetImage();
+
+	this->image_memory_barriers.push_back(image_memory_barrier);
+
+	return *this;
+}
+
+GvkBarrier& GvkBarrier::BufferBarrier(ptr<gvk::Buffer> buffer, VkAccessFlags src_access_flags, VkAccessFlags dst_access_flags)
+{
+	VkBufferMemoryBarrier buffer_memory_barrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+	buffer_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	buffer_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	buffer_memory_barrier.dstAccessMask = dst_access_flags;
+	buffer_memory_barrier.srcAccessMask = src_access_flags;
+
+	buffer_memory_barrier.buffer = buffer->GetBuffer();
+	buffer_memory_barrier.offset = 0;
+	buffer_memory_barrier.size = buffer->GetSize();
+
+	this->buffer_memory_barriers.push_back(buffer_memory_barrier);
+	return *this;
+}
+
+GvkBarrier& GvkBarrier::MemoryBarrier(VkAccessFlags src_access_flags, VkAccessFlags dst_access_flags)
+{
+	VkMemoryBarrier memory_barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+	memory_barrier.dstAccessMask = dst_access_flags;
+	memory_barrier.srcAccessMask = src_access_flags;
+
+	memory_barriers.push_back(memory_barrier);
+	return *this;
+}
+
+void GvkBarrier::Emit(VkCommandBuffer cmd_buffer, VkDependencyFlags flag /*= 0*/)
+{
+	vkCmdPipelineBarrier(cmd_buffer, src_stage, dst_stage,
+		flag,
+		memory_barriers.size(),!memory_barriers.empty() ?  memory_barriers.data() : NULL,
+		buffer_memory_barriers.size(),!buffer_memory_barriers.empty() ? buffer_memory_barriers.data() : NULL,
+		image_memory_barriers.size() ,!image_memory_barriers.empty() ? image_memory_barriers.data() : NULL
+	);
+}
+
+GvkBarrier::GvkBarrier(VkPipelineStageFlags src, VkPipelineStageFlags dst)
+:src_stage(src),dst_stage(dst) 
+{}
+

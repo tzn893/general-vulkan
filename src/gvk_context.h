@@ -55,6 +55,11 @@ struct GvkInstanceCreateInfo {
 	std::vector<GVK_LAYER> required_layers;
 };
 
+struct GvkSamplerCreateInfo : public VkSamplerCreateInfo 
+{
+	GvkSamplerCreateInfo(VkFilter magFilter,VkFilter minFilter,VkSamplerMipmapMode mode);
+};
+
 namespace gvk {
 
 	class Context {
@@ -277,6 +282,29 @@ namespace gvk {
 		/// <param name="frame_buffer">frame buffer to destroy</param>
 		void						  DestroyFrameBuffer(VkFramebuffer frame_buffer);
 
+		/// <summary>
+		/// create a sampler
+		/// </summary>
+		/// <param name="sampler_info">the create info of the sampler</param>
+		/// <returns>created sampler</returns>
+		opt<VkSampler>					  CreateSampler(VkSamplerCreateInfo& sampler_info);
+
+		/// <summary>
+		/// Destroy the created sampler
+		/// </summary>
+		/// <param name="sampler">a not null VkSampler</param>
+		void						  DestroySampler(VkSampler sampler);
+
+		/// <summary>
+		/// Get the device of this context
+		/// </summary>
+		/// <returns>device</returns>
+		VkDevice					  GetDevice();
+
+		/// <summary>
+		/// get back buffers
+		/// </summary>
+		/// <returns>view of back buffer array</returns>
 		View<ptr<Image>>			  GetBackBuffers();
 
 		~Context();

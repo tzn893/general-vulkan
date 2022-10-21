@@ -3,6 +3,10 @@
 #include <chrono>
 
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stbi.h"
+
+
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 constexpr VkFormat back_buffer_foramt = VK_FORMAT_B8G8R8A8_UNORM;
 
@@ -12,6 +16,14 @@ float current_time() {
 	if (start == 0) start = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 	uint64_t ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 	return (float)(ms - start) / 1000.f;
+}
+
+std::tuple<void*, uint32, uint32> load_image() 
+{
+	int width, height, comp;
+	std::string path = std::string(TRIANGLE_SHADER_DIRECTORY) + "/texture.jpg";
+	void* image = stbi_load(path.c_str(), &width, &height, &comp, 4);
+	return std::make_tuple(image, (uint32)width, (uint32)height);
 }
 
 int main() 
@@ -93,12 +105,12 @@ int main()
 	}
 
 	TriangleVertex vertexs[] = {
-		 {{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}},
-		{{0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f}},
-		{{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-		{{0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 1.0f, 1.0f}}
+		 {{0.5f, -0.5f}, {1.0f, 0.0f}},
+		{{0.5f, 0.5f}, {1.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 1.0f}},
+		{{-0.5f, -0.5f}, {0.0f, 0.0f}},
+		{{0.5f, -0.5f}, {1.0f, 0.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 1.0f}}
 	};
 	ptr<gvk::Buffer> buffer;
 	require(context->CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, sizeof(vertexs),
@@ -119,6 +131,73 @@ int main()
 	require(graphic_pipeline->GetPushConstantRange("time"), push_constant_time);
 	require(graphic_pipeline->GetPushConstantRange("rotation"), push_constant_rotation);
 
+	//load images
+	ptr<gvk::Image> image;
+	{
+		auto [data, width, height] = load_image();
+
+		//create a staging buffer for data transfer
+		ptr<gvk::Buffer> stageing_buffer;
+		require(context->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			width * height * 4, GVK_HOST_WRITE_SEQUENTIAL), stageing_buffer);
+
+		//write data from CPU to staging buffer
+		stageing_buffer->Write(data, 0, width * height * 4);
+		
+		//create a image
+		require(context->CreateImage(
+			GvkImageCreateInfo::Image2D(VK_FORMAT_R8G8B8A8_UNORM, width, height, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)
+		), image);
+		
+		//copy data from staging buffer to image
+		queue->SubmitTemporalCommand(
+			[&](VkCommandBuffer cmd_buffer) {
+				GvkBarrier(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT)
+					.ImageBarrier(image, 
+					VK_IMAGE_LAYOUT_UNDEFINED,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					0,
+					VK_ACCESS_TRANSFER_WRITE_BIT).Emit(cmd_buffer);
+
+				VkBufferImageCopy copy_info{};
+				copy_info.bufferOffset = 0;
+				copy_info.bufferRowLength = 0;
+				copy_info.bufferImageHeight = 0;
+				copy_info.imageExtent = image->Info().extent;
+				copy_info.imageOffset = { 0 };
+				copy_info.imageSubresource.aspectMask = gvk::GetAllAspects(image->Info().format);
+				copy_info.imageSubresource.baseArrayLayer = 0;
+				copy_info.imageSubresource.layerCount = image->Info().arrayLayers;
+				copy_info.imageSubresource.mipLevel = 0;
+
+				vkCmdCopyBufferToImage(cmd_buffer,stageing_buffer->GetBuffer(),
+					image->GetImage(),VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,1,&copy_info);
+
+				GvkBarrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
+					.ImageBarrier(image,
+						VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+						VK_ACCESS_TRANSFER_WRITE_BIT,
+						VK_ACCESS_SHADER_READ_BIT).Emit(cmd_buffer);
+			},gvk::SemaphoreInfo(),true
+		);
+	}
+
+	VkImageView view;
+	require(image->CreateView(VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D),view);
+
+	ptr <gvk::DescriptorSetLayout> descriptor_set_layout;
+	require(graphic_pipeline->GetInternalLayout(0, VK_SHADER_STAGE_FRAGMENT_BIT), descriptor_set_layout);
+	ptr<gvk::DescriptorAllocator> descriptor_allocator = context->CreateDescriptorAllocator();
+	ptr<gvk::DescriptorSet>	descriptor_set;
+	require(descriptor_allocator->Allocate(descriptor_set_layout), descriptor_set);
+
+	VkSampler sampler; 
+	require(context->CreateSampler(GvkSamplerCreateInfo(VK_FILTER_LINEAR, VK_FILTER_LINEAR,VK_SAMPLER_MIPMAP_MODE_LINEAR)), sampler);
+
+	GvkDescriptorSetWrite()
+		.ImageWrite(descriptor_set, "my_texture",sampler , view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		.Emit(context->GetDevice());
 
 	uint32 i = 0;
 	while (!window->ShouldClose()) 
@@ -175,7 +254,10 @@ int main()
 			cmd_buffer
 		).Record([&]() {
 			vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipeline());
-			
+			VkDescriptorSet descriptor_sets[] = { descriptor_set->GetDescriptorSet() };
+			vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipelineLayout(),
+				0, gvk_count_of(descriptor_sets), descriptor_sets, 0, NULL);
+
 			float time = current_time();
 			push_constant_time.Update(cmd_buffer, &time);
 
@@ -210,6 +292,7 @@ int main()
 
 	for (auto fb : frame_buffers) context->DestroyFrameBuffer(fb);
 	context->DestroyVkSemaphore(color_output_finish);
+	context->DestroySampler(sampler);
 
 	buffer = nullptr;
 	graphic_pipeline = nullptr;

@@ -197,33 +197,6 @@ struct GvkRenderPassCreateInfo : public VkRenderPassCreateInfo
 	std::vector<VkSubpassDependency>				m_Dependencies;
 };
 
-struct GvkDescriptorSetBufferWrite 
-{
-	const char*			name;
-	uint32				array_index;
-	VkBuffer			buffer;
-	VkDeviceSize		offset;
-	VkDeviceSize		size;
-};
-
-struct GvkDescriptorSetImageWrite 
-{
-	const char*		name;
-	uint32			array_index;
-	VkSampler		sampler;
-	VkImageView		image;
-	VkImageLayout	layout;
-};
-
-struct GvkDescriptorSetWrite 
-{
-	std::vector<GvkDescriptorSetBufferWrite> buffers;
-	std::vector<GvkDescriptorSetImageWrite>  images;
-
-	GvkDescriptorSetWrite& Buffer(const char* name,VkBuffer buffer,VkDeviceSize offset, VkDeviceSize size,uint32 array_index = 0);
-	GvkDescriptorSetWrite& Image(const char* name,VkSampler sampler,VkImageView image_view,VkImageLayout layout,uint32 array_index = 0);
-};
-
 class GvkPushConstant 
 {
 	friend class Pipeline;
@@ -231,7 +204,7 @@ public:
 	void Update(VkCommandBuffer cmd_buffer,const void* data);
 	
 	GvkPushConstant(VkPushConstantRange range, VkPipelineLayout layout);
-	GvkPushConstant() {}
+	GvkPushConstant():layout(NULL) {}
 private:
 	VkPushConstantRange range;
 	VkPipelineLayout    layout;
@@ -270,10 +243,12 @@ namespace gvk{
 	{
 		friend class DescriptorAllocator;
 	public:
+
 		VkDescriptorSet GetDescriptorSet();
 		uint32			GetSetIndex();
 
-		void Write(const GvkDescriptorSetWrite& write);
+		opt<SpvReflectDescriptorBinding*> FindBinding(const char* name);
+
 		~DescriptorSet();
 
 	private:
@@ -296,11 +271,14 @@ namespace gvk{
 
 		opt<GvkPushConstant>					GetPushConstantRange(const char* name);
 
+
 		~Pipeline();
 	private:
-		Pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::vector<ptr<DescriptorSetLayout>>& descriptor_set_layouts, 
-			const std::unordered_map<std::string,VkPushConstantRange>& push_constants, ptr<RenderPass> render_pass,uint32 subpass_index,VkDevice device);
+		Pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::vector<ptr<DescriptorSetLayout>>& descriptor_set_layouts, const std::unordered_map<std::string,VkPushConstantRange>& push_constants, 
+			ptr<RenderPass> render_pass,uint32 subpass_index,VkPipelineBindPoint bind_point,VkDevice device);
 
+
+		VkPipelineBindPoint										m_BindPoint;
 		VkDevice												m_Device;
 		VkPipeline												m_Pipeline;
 		VkPipelineLayout										m_PipelineLayout;
@@ -312,3 +290,39 @@ namespace gvk{
 	};
 	
 }
+
+struct GvkDescriptorSetBufferWrite
+{
+	VkDescriptorSet		desc_set;
+	VkDescriptorType	type;
+	uint32				binding;
+	uint32				array_index;
+	VkBuffer			buffer;
+	VkDeviceSize		offset;
+	VkDeviceSize		size;
+};
+
+struct GvkDescriptorSetImageWrite
+{
+	VkDescriptorSet  desc_set;
+	VkDescriptorType type;
+	uint32			binding;
+	uint32			array_index;
+	VkSampler		sampler;
+	VkImageView		image;
+	VkImageLayout	layout;
+};
+
+struct GvkDescriptorSetWrite
+{
+	std::vector<GvkDescriptorSetBufferWrite> buffers;
+	std::vector<GvkDescriptorSetImageWrite>  images;
+
+	GvkDescriptorSetWrite& ImageWrite(ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32 binding, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index = 0);
+	GvkDescriptorSetWrite& BufferWrite(ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32 binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index = 0);
+
+	GvkDescriptorSetWrite& ImageWrite(ptr<gvk::DescriptorSet> set, const char* name, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index = 0);
+	GvkDescriptorSetWrite& BufferWrite(ptr<gvk::DescriptorSet> set,const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index = 0);
+
+	void				   Emit(VkDevice device);
+};

@@ -226,6 +226,27 @@ namespace gvk {
 	}
 
 
+	opt<VkSampler> Context::CreateSampler(VkSamplerCreateInfo& sampler_info)
+	{
+		VkSampler sampler;
+		if (vkCreateSampler(m_Device, &sampler_info, nullptr, &sampler) != VK_SUCCESS) 
+		{
+			return std::nullopt;
+		}
+		return sampler;
+	}
+
+	void Context::DestroySampler(VkSampler sampler)
+	{
+		gvk_assert(sampler != NULL);
+		vkDestroySampler(m_Device, sampler, nullptr);
+	}
+
+	VkDevice Context::GetDevice()
+	{
+		return m_Device;
+	}
+
 	gvk::View<ptr<gvk::Image>> Context::GetBackBuffers()
 	{
 		return View(m_BackBuffers);
@@ -862,4 +883,31 @@ GvkInstanceCreateInfo& GvkInstanceCreateInfo::AddLayer(GVK_LAYER layer)
 		required_layers.push_back(layer);
 	}
 	return *this;
+}
+
+GvkSamplerCreateInfo::GvkSamplerCreateInfo(VkFilter magFilter, VkFilter minFilter, VkSamplerMipmapMode mode)
+{
+	sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	pNext = NULL;
+
+	this->magFilter = magFilter;
+	this->minFilter = minFilter;
+	
+	mipmapMode = mode;
+	mipLodBias = 0.0f;
+	minLod = 0.0f;
+	maxLod = 0.0f;
+
+	addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+	anisotropyEnable = VK_FALSE;
+	maxAnisotropy = 1.0f;
+
+	borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	unnormalizedCoordinates = VK_FALSE;
+	compareEnable = VK_FALSE;
+	compareOp = VK_COMPARE_OP_ALWAYS;
+	flags = 0;
 }
