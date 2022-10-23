@@ -202,7 +202,25 @@ int main()
 	uint32 i = 0;
 	while (!window->ShouldClose()) 
 	{
-		window->UpdateWindow();
+		if (window->OnResize()) 
+		{
+			std::string error;
+			if (!context->UpdateSwapChain(window.get(), &error))
+			{
+				printf("%s", error.c_str());
+				break;
+			}
+			auto back_buffers = context->GetBackBuffers();
+			//recreate all the framebuffers
+			for (uint32 i = 0;i < back_buffers.size();i++)
+			{
+				auto back_buffer = back_buffers[i];
+				context->DestroyFrameBuffer(frame_buffers[i]);
+				require(context->CreateFrameBuffer(render_pass, &back_buffer->GetViews()[0],
+					back_buffer->Info().extent.width, back_buffer->Info().extent.height), frame_buffers[i]);
+			}
+			
+		}
 
 		vkResetCommandBuffer(cmd_buffer, 0);
 
@@ -288,6 +306,8 @@ int main()
 		context->Present(gvk::SemaphoreInfo().Wait(color_output_finish,0));
 
 		queue->StallForDevice();
+
+		window->UpdateWindow();
 	}
 
 	for (auto fb : frame_buffers) context->DestroyFrameBuffer(fb);

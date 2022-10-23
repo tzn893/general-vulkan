@@ -30,14 +30,18 @@ namespace gvk {
 		bool KeyUp(GVK_KEY k);
 		bool KeyHold(GVK_KEY k);
 
+		bool OnResize();
+
 		~Window();
 	private:
 		friend void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+		friend void frame_resize_callback(GLFWwindow* window, int width, int height);
 
 		GLFWwindow* m_Window;
 		uint32 m_Width, m_Height;
 
 		Window(GLFWwindow*, uint32, uint32);
 		int m_KeyState[GVK_KEY_NUM];
+		bool m_OnResize;
 	};
 }

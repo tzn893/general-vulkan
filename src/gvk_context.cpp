@@ -727,6 +727,14 @@ namespace gvk {
 			return false;
 		}
 
+		//if the old swap chain is not empty,we need to destroy the image views
+		if (old_swap_chain != NULL) {
+			for (uint32 i = 0; i < m_BackBuffers.size(); i++) {
+				m_BackBuffers[i] = nullptr;
+			}
+			vkDestroySwapchainKHR(m_Device, old_swap_chain, nullptr);
+		}
+
 		//retrieve back buffer and initialize render target views
 		uint32 image_count;
 		vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &image_count, nullptr);
@@ -754,13 +762,7 @@ namespace gvk {
 			m_BackBuffers[i] = ptr<Image>(new Image(vk_back_buffers[i],NULL,NULL,m_Device, image_create_info));
 		}
 		
-		//if the old swap chain is not empty,we need to destroy the image views
-		if (old_swap_chain != NULL) {
-			for (uint32 i = 0; i < m_BackBuffers.size();i++) {
-				m_BackBuffers[i] = nullptr;
-			}
-			vkDestroySwapchainKHR(m_Device, old_swap_chain, nullptr);
-		}
+		
 
 		m_BackBuffers.resize(image_count);
 		//create back buffer image views
