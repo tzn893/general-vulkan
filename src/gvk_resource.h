@@ -31,10 +31,10 @@ struct GvkImageCreateInfo {
 	/// <param name="height">height of the image</param>
 	/// <param name="usage">usage of the image</param>
 	/// <returns>image create info</returns>
-	static GvkImageCreateInfo Image2D(VkFormat format,uint32 width,uint32 height,
+	static GvkImageCreateInfo Image2D(VkFormat format,uint32_t width,uint32_t height,
 		VkImageUsageFlags usage);
 
-	static GvkImageCreateInfo MippedImage2D(VkFormat format,uint32 width,uint32 height,uint32 miplevels,VkImageUsageFlags usages);
+	static GvkImageCreateInfo MippedImage2D(VkFormat format,uint32_t width,uint32_t height,uint32_t miplevels,VkImageUsageFlags usages);
 };
 
 
@@ -57,7 +57,7 @@ struct GvkBarrier
 	/// <param name="src_access_flags">the source access mask of the image(What did you do to the image in the old layout)</param>
 	/// <param name="dst_access_flags">the destination mask of the image(What will you do to the image in the new layout)</param>
 	/// <returns>image barrier</returns>
-	GvkBarrier& ImageBarrier(ptr<gvk::Image> image,VkImageLayout init_layout,VkImageLayout final_layout,
+	GvkBarrier& ImageBarrier(gvk::ptr<gvk::Image> image,VkImageLayout init_layout,VkImageLayout final_layout,
 		VkAccessFlags src_access_flags,VkAccessFlags dst_access_flags);
 
 	/// <summary>
@@ -67,7 +67,7 @@ struct GvkBarrier
 	/// <param name="src_access_flags">the source access mask of the image(What did you do to the image in the old layout)</param>
 	/// <param name="dst_access_flags">the destination mask of the image(What will you do to the image in the new layout)</param>
 	/// <returns>buffer barrier</returns>
-	GvkBarrier& BufferBarrier(ptr<gvk::Buffer> buffer, VkAccessFlags src_access_flags, VkAccessFlags dst_access_flags);
+	GvkBarrier& BufferBarrier(gvk::ptr<gvk::Buffer> buffer, VkAccessFlags src_access_flags, VkAccessFlags dst_access_flags);
 
 	/// <summary>
 	/// 

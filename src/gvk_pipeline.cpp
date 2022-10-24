@@ -782,6 +782,8 @@ namespace gvk {
 		:m_Framebuffer(framebuffer),m_CommandBuffer(command_buffer) {}
 }
 
+using namespace gvk;
+
 GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState()
 {
 	create_info.pNext = NULL;

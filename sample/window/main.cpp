@@ -1,5 +1,6 @@
 #include "gvk_window.h"
 #include <stdio.h>
+using namespace gvk;
 
 int main() {
 	ptr<gvk::Window> window;

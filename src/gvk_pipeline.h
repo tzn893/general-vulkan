@@ -10,22 +10,22 @@ namespace gvk {
 		friend class Context;
 	public:
 		VkDescriptorSetLayout GetLayout();
-		uint32 GetSetID() ;
-		bool   CreatedFromShader(const ptr<gvk::Shader>& shader,uint32 set);
+		uint32_t GetSetID() ;
+		bool   CreatedFromShader(const gvk::ptr<gvk::Shader>& shader,uint32_t set);
 		View<SpvReflectDescriptorBinding*> GetDescriptorSetBindings();
 
 		VkShaderStageFlags		GetShaderStageBits();
 
 		~DescriptorSetLayout();
 	private:
-		DescriptorSetLayout(VkDescriptorSetLayout layout,const std::vector<ptr<gvk::Shader>>& shaders,
-			const std::vector<SpvReflectDescriptorBinding*>& descriptor_set_bindings,uint32 sets,VkDevice device);
+		DescriptorSetLayout(VkDescriptorSetLayout layout,const std::vector<gvk::ptr<gvk::Shader>>& shaders,
+			const std::vector<SpvReflectDescriptorBinding*>& descriptor_set_bindings,uint32_t sets,VkDevice device);
 		
 		VkShaderStageFlags							m_ShaderStages;
 		VkDescriptorSetLayout						m_Layout;
-		std::vector<ptr<gvk::Shader>>				m_Shader;
+		std::vector<gvk::ptr<gvk::Shader>>				m_Shader;
 		std::vector<SpvReflectDescriptorBinding*>	m_DescriptorSetBindings;
-		uint32										m_Set;
+		uint32_t										m_Set;
 		VkDevice									m_Device;
 	};
 
@@ -44,8 +44,8 @@ namespace gvk {
 	class RenderPass {
 		friend class Context;
 	public:
-		uint32					GetAttachmentCount();
-		uint32					GetSubpassCount();
+		uint32_t					GetAttachmentCount();
+		uint32_t					GetSubpassCount();
 		VkRenderPass			GetRenderPass();
 
 		RenderPassInlineContent	Begin(VkFramebuffer framebuffer,VkClearValue* clear_values,
@@ -53,21 +53,21 @@ namespace gvk {
 
 		~RenderPass();
 	private:
-		RenderPass(VkRenderPass render_pass,VkDevice device,uint32 subpass_count,
-			uint32 attachment_count);
+		RenderPass(VkRenderPass render_pass,VkDevice device,uint32_t subpass_count,
+			uint32_t attachment_count);
 
 		VkRenderPass m_Pass;
 		VkDevice	 m_Device;
 
-		uint32 m_SubpassCount;
-		uint32 m_AttachmentCount;
+		uint32_t m_SubpassCount;
+		uint32_t m_AttachmentCount;
 	};
 }
 
 struct GvkDescriptorLayoutHint
 {
-	void AddDescriptorSetLayout(const ptr<gvk::DescriptorSetLayout>& layout);
-	std::vector<ptr<gvk::DescriptorSetLayout>> precluded_descriptor_layouts;
+	void AddDescriptorSetLayout(const gvk::ptr<gvk::DescriptorSetLayout>& layout);
+	std::vector<gvk::ptr<gvk::DescriptorSetLayout>> precluded_descriptor_layouts;
 
 };
 
@@ -76,14 +76,14 @@ struct GvkGraphicsPipelineCreateInfo {
 	GvkGraphicsPipelineCreateInfo() {}
 	
 
-	ptr<gvk::Shader> vertex_shader;
+	gvk::ptr<gvk::Shader> vertex_shader;
 
 	//TODO : currently we don't support tessellation or geometry stage 
 	//ptr<gvk::Shader> tess_control_shader;
 	//ptr<gvk::Shader> tess_evalue_shader;
 	//ptr<gvk::Shader> geometry_shader;
 
-	ptr<gvk::Shader> fragment_shader;
+	gvk::ptr<gvk::Shader> fragment_shader;
 
 	//TODO : currently we don't support mesh shader work flow
 	//ptr<gvk::Shader> task_shader;
@@ -120,14 +120,14 @@ struct GvkGraphicsPipelineCreateInfo {
 		/// Resize the blend states to frame buffer count of blend states
 		/// </summary>
 		/// <param name="frame_buffer_count"></param>
-		void Resize(uint32 frame_buffer_count);
+		void Resize(uint32_t frame_buffer_count);
 
 		/// <summary>
 		/// set the blend state at specified location
 		/// </summary>
 		/// <param name="index">index of blend state</param>
 		/// <param name="state">state to set</param>
-		void Set(uint32 index,const BlendState& state);
+		void Set(uint32_t index,const BlendState& state);
 
 		std::vector<VkPipelineColorBlendAttachmentState> frame_buffer_states;
 		VkPipelineColorBlendStateCreateInfo create_info;
@@ -146,40 +146,40 @@ struct GvkGraphicsPipelineCreateInfo {
 	/// <param name="render_pass">the render pass of graphics pipeline</param>
 	/// <param name="subpass_index">the index of subpass in render pass of graphics pipeline</param>
 	/// <param name="blend_states">pointer to array of blend states of graphics pipeline,the array size must equal to count of output of fragment shader</param>
-	GvkGraphicsPipelineCreateInfo(ptr<gvk::Shader> vert, ptr<gvk::Shader> frag, ptr<gvk::RenderPass> render_pass,
-		uint32 subpass_index, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states);
+	GvkGraphicsPipelineCreateInfo(gvk::ptr<gvk::Shader> vert, gvk::ptr<gvk::Shader> frag, gvk::ptr<gvk::RenderPass> render_pass,
+		uint32_t subpass_index, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states);
 
 	GvkDescriptorLayoutHint descriptor_layuot_hint;
 
 
-	ptr<gvk::RenderPass>	target_pass;
-	uint32					subpass_index = 0;
+	gvk::ptr<gvk::RenderPass>	target_pass;
+	uint32_t					subpass_index = 0;
 };
 
 
 struct GvkComputePipelineCreateInfo 
 {
-	ptr<gvk::Shader>		shader;
+	gvk::ptr<gvk::Shader>		shader;
 
 	GvkDescriptorLayoutHint	descriptor_layuot_hint;
 
-	ptr<gvk::RenderPass>	render_pass;
-	uint32					subpass_index;
+	gvk::ptr<gvk::RenderPass>	render_pass;
+	uint32_t					subpass_index;
 };
 
 struct GvkRenderPassCreateInfo : public VkRenderPassCreateInfo
 {
 	GvkRenderPassCreateInfo();
 
-	uint32	AddAttachment(VkAttachmentDescriptionFlags flag,VkFormat format,
+	uint32_t	AddAttachment(VkAttachmentDescriptionFlags flag,VkFormat format,
 		VkSampleCountFlagBits sample_counts,VkAttachmentLoadOp load,
 		VkAttachmentStoreOp store,VkAttachmentLoadOp stencil_load,VkAttachmentStoreOp stencil_store,
 		VkImageLayout init_layout,VkImageLayout end_layout);
 
 	void	AddSubpass(VkSubpassDescriptionFlags flags, VkPipelineBindPoint bind_point);
-	void	AddSubpassColorAttachment(uint32 subpass_index,uint32 attachment_index);
-	void	AddSubpassDepthStencilAttachment(uint32 subpass_index,uint32 attachment_index);
-	void	AddSubpassInputAttachment(uint32 subpass_index,uint32 attachment_index,VkImageLayout layout);
+	void	AddSubpassColorAttachment(uint32_t subpass_index,uint32_t attachment_index);
+	void	AddSubpassDepthStencilAttachment(uint32_t subpass_index,uint32_t attachment_index);
+	void	AddSubpassInputAttachment(uint32_t subpass_index,uint32_t attachment_index,VkImageLayout layout);
 
 	void	AddSubpassDependency(uint32_t                srcSubpass,
 								 uint32_t                dstSubpass,
@@ -235,7 +235,7 @@ namespace gvk{
 		//	according to the last pool
 		std::vector<VkDescriptorPoolSize> m_PoolSize;
 
-		uint32							  m_MaxSetCount;
+		uint32_t							  m_MaxSetCount;
 		VkDevice						  m_Device;
 	};
 
@@ -245,7 +245,7 @@ namespace gvk{
 	public:
 
 		VkDescriptorSet GetDescriptorSet();
-		uint32			GetSetIndex();
+		uint32_t			GetSetIndex();
 
 		opt<SpvReflectDescriptorBinding*> FindBinding(const char* name);
 
@@ -264,7 +264,7 @@ namespace gvk{
 		friend class Context;
 	public:
 		opt<ptr<RenderPass>>					GetRenderPass();
-		opt<ptr<DescriptorSetLayout>>			GetInternalLayout(uint32 set,VkShaderStageFlagBits stage);
+		opt<ptr<DescriptorSetLayout>>			GetInternalLayout(uint32_t set,VkShaderStageFlagBits stage);
 
 		VkPipeline								GetPipeline();
 		VkPipelineLayout						GetPipelineLayout();
@@ -275,7 +275,7 @@ namespace gvk{
 		~Pipeline();
 	private:
 		Pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::vector<ptr<DescriptorSetLayout>>& descriptor_set_layouts, const std::unordered_map<std::string,VkPushConstantRange>& push_constants, 
-			ptr<RenderPass> render_pass,uint32 subpass_index,VkPipelineBindPoint bind_point,VkDevice device);
+			ptr<RenderPass> render_pass,uint32_t subpass_index,VkPipelineBindPoint bind_point,VkDevice device);
 
 
 		VkPipelineBindPoint										m_BindPoint;
@@ -286,7 +286,7 @@ namespace gvk{
 		std::vector<ptr<DescriptorSetLayout>>					m_InternalDescriptorSetLayouts;
 		std::unordered_map<std::string, VkPushConstantRange>	m_PushConstants;
 		ptr<RenderPass>											m_RenderPass;
-		uint32													m_SubpassIndex;
+		uint32_t													m_SubpassIndex;
 	};
 	
 }
@@ -295,8 +295,8 @@ struct GvkDescriptorSetBufferWrite
 {
 	VkDescriptorSet		desc_set;
 	VkDescriptorType	type;
-	uint32				binding;
-	uint32				array_index;
+	uint32_t				binding;
+	uint32_t				array_index;
 	VkBuffer			buffer;
 	VkDeviceSize		offset;
 	VkDeviceSize		size;
@@ -306,8 +306,8 @@ struct GvkDescriptorSetImageWrite
 {
 	VkDescriptorSet  desc_set;
 	VkDescriptorType type;
-	uint32			binding;
-	uint32			array_index;
+	uint32_t			binding;
+	uint32_t			array_index;
 	VkSampler		sampler;
 	VkImageView		image;
 	VkImageLayout	layout;
@@ -318,11 +318,11 @@ struct GvkDescriptorSetWrite
 	std::vector<GvkDescriptorSetBufferWrite> buffers;
 	std::vector<GvkDescriptorSetImageWrite>  images;
 
-	GvkDescriptorSetWrite& ImageWrite(ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32 binding, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index = 0);
-	GvkDescriptorSetWrite& BufferWrite(ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32 binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index = 0);
+	GvkDescriptorSetWrite& ImageWrite(gvk::ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32_t binding, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32_t array_index = 0);
+	GvkDescriptorSetWrite& BufferWrite(gvk::ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32_t binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t array_index = 0);
 
-	GvkDescriptorSetWrite& ImageWrite(ptr<gvk::DescriptorSet> set, const char* name, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32 array_index = 0);
-	GvkDescriptorSetWrite& BufferWrite(ptr<gvk::DescriptorSet> set,const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32 array_index = 0);
+	GvkDescriptorSetWrite& ImageWrite(gvk::ptr<gvk::DescriptorSet> set, const char* name, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32_t array_index = 0);
+	GvkDescriptorSetWrite& BufferWrite(gvk::ptr<gvk::DescriptorSet> set,const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t array_index = 0);
 
 	void				   Emit(VkDevice device);
 };

@@ -10,6 +10,8 @@
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 constexpr VkFormat back_buffer_foramt = VK_FORMAT_B8G8R8A8_UNORM;
 
+using namespace gvk;
+
 float current_time() {
 	using namespace std::chrono;
 	static uint64_t start = 0;
@@ -52,7 +54,7 @@ int main()
 
 	context->CreateSwapChain(window.get(), back_buffer_foramt, &error);
 
-	const char* include_directorys[] = { TRIANGLE_SHADER_DIRECTORY, SHADER_DIRECTORY };
+	const char* include_directorys[] = { TRIANGLE_SHADER_DIRECTORY};
 
 	auto vert = context->CompileShader("triangle.vert", gvk::ShaderMacros(),
 		include_directorys, gvk_count_of(include_directorys),

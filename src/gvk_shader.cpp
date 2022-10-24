@@ -3,8 +3,8 @@
 #ifdef GVK_WINDOWS_PLATFORM
 #include <Windows.h>
 
-opt<int32> LauchProcess(const char* process,const char* options) {
-	uint32 process_len = strlen(process), option_len = strlen(options);
+gvk::opt<int32_t> LauchProcess(const char* process,const char* options) {
+	gvk::uint32 process_len = strlen(process), option_len = strlen(options);
 	char buffer[1024];
 	strcpy(buffer, process);
 	strcat(buffer, options);
@@ -16,18 +16,18 @@ opt<int32> LauchProcess(const char* process,const char* options) {
 	gvk_zero_mem(pi);
 
 	if (! CreateProcessA(
-		NULL,   //  Ö¸ÏòÒ»¸öNULL½áÎ²µÄ¡¢ÓÃÀ´Ö¸¶¨¿ÉÖ´ÐÐÄ£¿éµÄ¿í×Ö½Ú×Ö·û´®  
-		buffer, // ÃüÁîÐÐ×Ö·û´®  
-		NULL, //    Ö¸ÏòÒ»¸öSECURITY_ATTRIBUTES½á¹¹Ìå£¬Õâ¸ö½á¹¹Ìå¾ö¶¨ÊÇ·ñ·µ»ØµÄ¾ä±ú¿ÉÒÔ±»×Ó½ø³Ì¼Ì³Ð¡£  
-		NULL, //    Èç¹ûlpProcessAttributes²ÎÊýÎª¿Õ£¨NULL£©£¬ÄÇÃ´¾ä±ú²»ÄÜ±»¼Ì³Ð¡£<Í¬ÉÏ>  
-		false,//    Ö¸Ê¾ÐÂ½ø³ÌÊÇ·ñ´Óµ÷ÓÃ½ø³Ì´¦¼Ì³ÐÁË¾ä±ú¡£   
-		0,  //  Ö¸¶¨¸½¼ÓµÄ¡¢ÓÃÀ´¿ØÖÆÓÅÏÈÀàºÍ½ø³ÌµÄ´´½¨µÄ±ê  
-		//  CREATE_NEW_CONSOLE  ÐÂ¿ØÖÆÌ¨´ò¿ª×Ó½ø³Ì  
-		//  CREATE_SUSPENDED    ×Ó½ø³Ì´´½¨ºó¹ÒÆð£¬Ö±µ½µ÷ÓÃResumeThreadº¯Êý  
-		NULL, //    Ö¸ÏòÒ»¸öÐÂ½ø³ÌµÄ»·¾³¿é¡£Èç¹û´Ë²ÎÊýÎª¿Õ£¬ÐÂ½ø³ÌÊ¹ÓÃµ÷ÓÃ½ø³ÌµÄ»·¾³  
-		NULL, //    Ö¸¶¨×Ó½ø³ÌµÄ¹¤×÷Â·¾¶  
-		&si, // ¾ö¶¨ÐÂ½ø³ÌµÄÖ÷´°ÌåÈçºÎÏÔÊ¾µÄSTARTUPINFO½á¹¹Ìå  
-		&pi  // ½ÓÊÕÐÂ½ø³ÌµÄÊ¶±ðÐÅÏ¢µÄPROCESS_INFORMATION½á¹¹Ìå  
+		NULL,   //  Ö¸ï¿½ï¿½Ò»ï¿½ï¿½NULLï¿½ï¿½Î²ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ï¿½Ä£ï¿½ï¿½Ä¿ï¿½ï¿½Ö½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½  
+		buffer, // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½  
+		NULL, //    Ö¸ï¿½ï¿½Ò»ï¿½ï¿½SECURITY_ATTRIBUTESï¿½á¹¹ï¿½å£¬ï¿½ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ñ·µ»ØµÄ¾ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½Ó½ï¿½ï¿½Ì¼Ì³Ð¡ï¿½  
+		NULL, //    ï¿½ï¿½ï¿½lpProcessAttributesï¿½ï¿½ï¿½ï¿½Îªï¿½Õ£ï¿½NULLï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü±ï¿½ï¿½Ì³Ð¡ï¿½<Í¬ï¿½ï¿½>  
+		false,//    Ö¸Ê¾ï¿½Â½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½Óµï¿½ï¿½Ã½ï¿½ï¿½Ì´ï¿½ï¿½Ì³ï¿½ï¿½Ë¾ï¿½ï¿½ï¿½ï¿½   
+		0,  //  Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ÓµÄ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í½ï¿½ï¿½ÌµÄ´ï¿½ï¿½ï¿½ï¿½Ä±ï¿½  
+		//  CREATE_NEW_CONSOLE  ï¿½Â¿ï¿½ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½  
+		//  CREATE_SUSPENDED    ï¿½Ó½ï¿½ï¿½Ì´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ResumeThreadï¿½ï¿½ï¿½ï¿½  
+		NULL, //    Ö¸ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â½ï¿½ï¿½ÌµÄ»ï¿½ï¿½ï¿½ï¿½é¡£ï¿½ï¿½ï¿½ï¿½Ë²ï¿½ï¿½ï¿½Îªï¿½Õ£ï¿½ï¿½Â½ï¿½ï¿½ï¿½Ê¹ï¿½Ãµï¿½ï¿½Ã½ï¿½ï¿½ÌµÄ»ï¿½ï¿½ï¿½  
+		NULL, //    Ö¸ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ÌµÄ¹ï¿½ï¿½ï¿½Â·ï¿½ï¿½  
+		&si, // ï¿½ï¿½ï¿½ï¿½ï¿½Â½ï¿½ï¿½Ìµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½STARTUPINFOï¿½á¹¹ï¿½ï¿½  
+		&pi  // ï¿½ï¿½ï¿½ï¿½ï¿½Â½ï¿½ï¿½Ìµï¿½Ê¶ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½PROCESS_INFORMATIONï¿½á¹¹ï¿½ï¿½  
 	)) {
 		printf("fail to create process glslc\n");
 		return std::nullopt;
@@ -39,7 +39,7 @@ opt<int32> LauchProcess(const char* process,const char* options) {
 	GetExitCodeProcess(pi.hProcess, &value);
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
-	return (int32)value;
+	return (int32_t)value;
 }
 
 #endif
@@ -120,6 +120,8 @@ namespace gvk {
 		for (uint32 i = 0; i < include_directory_count; i++) {
 			options += " -I " + std::string(include_directories[i]);
 		}
+		//every shader should include shader/shader_common.h
+		options += " -I " + std::string(GVK_SHADER_COMMON_DIRECTORY);
 
 		//lauch the compile process
 		if (auto v = LauchProcess(GLSLC_EXECUATABLE, options.c_str()); !v.has_value())

@@ -230,6 +230,8 @@ namespace gvk {
 	{}
 }
 
+using namespace gvk;
+
 bool GvkImageSubresourceRange::operator==(const GvkImageSubresourceRange& other) const
 {
 	return memcmp(&range, &other.range, sizeof(range)) == 0

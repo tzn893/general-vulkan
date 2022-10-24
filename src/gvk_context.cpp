@@ -1,4 +1,5 @@
 #include "gvk_context.h"
+using namespace gvk;
 
 struct GvkExpectStrEqualTo {
 	GvkExpectStrEqualTo(const char* lhs) {

@@ -9,18 +9,7 @@
 #include <unordered_map>
 #include <string>
 
-using uint32 = uint32_t;
-using uint16 = uint16_t;
-using uint8  = uint8_t ;
-using int32  = int32_t ;
-using int16  = int16_t ;
-using int8   = int8_t  ;
 
-template<typename T>
-using ptr = std::shared_ptr<T>;
-
-template<typename T>
-using opt = std::optional<T>;
 
 #define gvk_assert(expr) if(!(expr)) {__debugbreak();exit(-1);}
 #define gvk_zero_mem(s) memset(&s,0,sizeof(s));
@@ -29,6 +18,19 @@ using opt = std::optional<T>;
 
 
 namespace gvk {
+	using uint32 = uint32_t;
+	using uint16 = uint16_t;
+	using uint8 = uint8_t;
+	using int32 = int32_t;
+	using int16 = int16_t;
+	using int8 = int8_t;
+
+	template<typename T>
+	using ptr = std::shared_ptr<T>;
+
+	template<typename T>
+	using opt = std::optional<T>;
+
 	template<typename T>
 	class View {
 	public:

@@ -22,5 +22,6 @@ target_link_libraries(gvk glfw ${Vulkan_LIBRARIES})
 
 # message(STATUS "GLSLC excutable path ${Vulkan_GLSLC_EXECUTABLE}")
 add_compile_definitions(GLSLC_EXECUATABLE="${Vulkan_GLSLC_EXECUTABLE}")
+add_compile_definitions(GVK_SHADER_COMMON_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
 

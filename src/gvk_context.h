@@ -7,7 +7,7 @@
 #include "gvk_shader.h"
 
 struct GVK_VERSION {
-	uint32 v0, v1, v2;
+	uint32_t v0, v1, v2;
 };
 
 enum GVK_LAYER {
@@ -35,11 +35,11 @@ struct GvkDeviceCreateInfo {
 	//other queues should be required when creating device
 	struct QueueRequireInfo {
 		VkFlags flags;
-		uint32  count;
+		uint32_t  count;
 		float   priority;
 	};
 	std::vector<QueueRequireInfo> required_queues;
-	GvkDeviceCreateInfo& RequireQueue(VkFlags queue_flags, uint32 count, float priority = 1.0f);
+	GvkDeviceCreateInfo& RequireQueue(VkFlags queue_flags, uint32_t count, float priority = 1.0f);
 
 	std::vector<const char*> required_extensions;
 	GvkDeviceCreateInfo& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
@@ -66,7 +66,7 @@ namespace gvk {
 		friend class CommandQueue;
 	public:
 		static opt<ptr<Context>> CreateContext(const char* app_name,GVK_VERSION app_version,
-			uint32 api_version,ptr<Window> window, std::string* error);
+			uint32_t api_version,ptr<Window> window, std::string* error);
 
 		/// <summary>
 		/// Initialize the instance in the context
@@ -101,7 +101,7 @@ namespace gvk {
 		opt<ptr<Shader>> CompileShader(const char* file,
 			const ShaderMacros& macros,
 			const char** include_directories, uint32 include_directory_count,
-			const char** search_pathes, uint32 search_path_count,
+			const char** search_pathes, uint32_t search_path_count,
 			std::string* error);
 
 		/// <summary>
@@ -113,7 +113,7 @@ namespace gvk {
 		/// <param name="error">error message</param>
 		/// <returns>loaded shader with shader module created</returns>
 		opt<ptr<Shader>> LoadShader(const char* file,
-			const char** search_pathes, uint32 search_path_count,
+			const char** search_pathes, uint32_t search_path_count,
 			std::string* error);
 
 		/// <summary>
@@ -189,7 +189,7 @@ namespace gvk {
 		/// Get current frame buffer's index
 		/// </summary>
 		/// <returns>frame buffer's index</returns>
-		uint32 CurrentFrameIndex();
+		uint32_t CurrentFrameIndex();
 
 		/// <summary>
 		/// Acquire the next image from swap chain.The image may not ready at the time
@@ -255,7 +255,7 @@ namespace gvk {
 		/// <param name="target_binding">the target set slot to create descriptor set</param>
 		/// <returns>created descriptor set layout</returns>
 		opt<ptr<DescriptorSetLayout>> CreateDescriptorSetLayout(const std::vector<ptr<Shader>>& target_shaders,
-			uint32 target_set,std::string* error);
+			uint32_t target_set,std::string* error);
 
 		/// <summary>
 		/// Create a descriptor allocator
@@ -274,7 +274,7 @@ namespace gvk {
 		/// <param name="create_flags">Flag of creating frame buffer</param>
 		/// <returns>created frame buffer</returns>
 		opt<VkFramebuffer>			  CreateFrameBuffer(ptr<RenderPass> render_pass,const VkImageView* views,
-			uint32 width,uint32 height,uint32 layers = 1, VkFramebufferCreateFlags create_flags = 0);
+			uint32_t width,uint32_t height,uint32_t layers = 1, VkFramebufferCreateFlags create_flags = 0);
 
 		/// <summary>
 		/// destroy the created frame buffer
@@ -310,7 +310,7 @@ namespace gvk {
 		~Context();
 	private:
 		
-		bool IntializeMemoryAllocation(bool addressable, uint32 vk_api_version, std::string* error);
+		bool IntializeMemoryAllocation(bool addressable, uint32_t vk_api_version, std::string* error);
 
 		bool AddInstanceExtension(GVK_INSTANCE_EXTENSION);
 		bool AddInstanceLayer(GVK_LAYER layer);
@@ -319,12 +319,12 @@ namespace gvk {
 			VkFlags flags;
 			float   priority;
 
-			uint32  family_index;
-			uint32  queue_index;
+			uint32_t  family_index;
+			uint32_t  queue_index;
 		};
 
 		struct QueueFamilyInfo {
-			uint32 index;
+			uint32_t index;
 			VkQueueFamilyProperties props;
 		};
 
@@ -383,29 +383,29 @@ namespace gvk {
 
 		VkSwapchainCreateInfoKHR m_SwapChainCreateInfo;
 		ptr<CommandQueue> m_PresentQueue = NULL;
-		uint32 m_PresentQueueFamilyIndex;
+		uint32_t m_PresentQueueFamilyIndex;
 		VkSwapchainKHR m_SwapChain = NULL;
 		// This semaphore will be created right after the swap chain is created
 		// It will be signaled after the image acquired from swap chain is ready 
 		std::vector<VkSemaphore>    m_ImageAcquireSemaphore;
 		// Will be initialized after swap chain is created 
 		// Increment by 1 after a image is presented
-		uint32  m_CurrentFrameIndex;
+		uint32_t  m_CurrentFrameIndex;
 		// Back buffer image index acquired from swap chain
 		// Will be utilized when presenting
-		uint32 m_CurrentBackBufferImageIndex = UINT32_MAX;
+		uint32_t m_CurrentBackBufferImageIndex = UINT32_MAX;
 		
 		VkSurfaceKHR m_Surface = NULL;
 		//TODO : set back buffer count dynamically by surface's capacity
-		uint32 m_BackBufferCount = 3;
+		uint32_t m_BackBufferCount = 3;
 		std::vector<ptr<Image>>  m_BackBuffers;
 
 		//allocator for memory allocation
 		VmaAllocator m_Allocator;
 		bool		 m_DeviceAddressable;
 
-		opt<uint32> FindSuitableQueueIndex(VkFlags flags,float priority);
-		opt<ptr<CommandQueue>> ConsumePrequiredQueue(uint32 idx);
+		opt<uint32_t> FindSuitableQueueIndex(VkFlags flags,float priority);
+		opt<ptr<CommandQueue>> ConsumePrequiredQueue(uint32_t idx);
 		void		 OnCommandQueueDestroy(CommandQueue* queue);
 
 	};
