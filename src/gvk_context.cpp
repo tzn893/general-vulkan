@@ -456,6 +456,24 @@ namespace gvk {
 			return false;
 		}
 
+#ifdef GVK_WINDOWS_PLATFORM
+		//create windows surface on windows platform
+		{
+			VkWin32SurfaceCreateInfoKHR win_surface{};
+			win_surface.hwnd = glfwGetWin32Window(m_Window->GetWindow());
+			//get instance handle of this application
+			win_surface.hinstance = GetModuleHandle(NULL);
+			win_surface.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+
+			VkResult res = vkCreateWin32SurfaceKHR(m_VkInstance, &win_surface, nullptr, &m_Surface);
+			if (res != VK_SUCCESS) {
+				if (error != nullptr) *error = "gvk : fail to create windows surface";
+				return false;
+			}
+		}
+#endif
+
+
 		//initialize memory allocation
 		m_Allocator = NULL;
 		bool addressable = false;
@@ -470,6 +488,38 @@ namespace gvk {
 
 		m_DeviceAddressable = addressable;
 		return IntializeMemoryAllocation(addressable, m_AppInfo.apiVersion, error);
+	}
+
+	std::vector<VkFormat> Context::EnumerateAvailableBackbufferFormats()
+	{
+		gvk_assert(m_PhyDevice != NULL);
+		gvk_assert(m_Surface != NULL);
+
+		uint32 format_count;
+		vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhyDevice, m_Surface, &format_count, nullptr);
+		std::vector<VkSurfaceFormatKHR> surface_formats(format_count);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhyDevice, m_Surface, &format_count, surface_formats.data());
+
+		std::vector<VkFormat> formats(format_count);
+		for (uint32 i = 0;i < format_count;i++) 
+		{
+			formats[i] = surface_formats[i].format;
+		}
+		return formats;
+	}
+
+	VkFormat Context::PickBackbufferFormatByHint(const std::vector<VkFormat>& hints)
+	{
+		auto supported_formats = EnumerateAvailableBackbufferFormats();
+		gvk_assert(!supported_formats.empty());
+		for (auto format : hints) 
+		{
+			if (std::find(supported_formats.begin(), supported_formats.end(), format) != supported_formats.end())
+			{
+				return format;
+			}
+		}
+		return supported_formats[0];
 	}
 
 	opt<ptr<gvk::Shader>> Context::CompileShader(const char* file, const ShaderMacros& macros, const char** include_directories, uint32 include_directory_count, const char** search_pathes, uint32 search_path_count, std::string* error)
@@ -593,26 +643,11 @@ namespace gvk {
 		return View<QueueFamilyInfo>(queue_family_prop);
 	}
 
-	bool Context::CreateSwapChain(Window* window,VkFormat rt_format,std::string* error) {
-		gvk_assert(window != NULL);
+	bool Context::CreateSwapChain(VkFormat img_format,std::string* error) {
+		gvk_assert(m_Window != NULL);
 		gvk_assert(m_SwapChain == NULL);
 
-#ifdef GVK_WINDOWS_PLATFORM
-		//create windows surface on windows platform
-		{
-			VkWin32SurfaceCreateInfoKHR win_surface{};
-			win_surface.hwnd = glfwGetWin32Window(window->GetWindow());
-			//get instance handle of this application
-			win_surface.hinstance = GetModuleHandle(NULL);
-			win_surface.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 
-			VkResult res = vkCreateWin32SurfaceKHR(m_VkInstance, &win_surface, nullptr, &m_Surface);
-			if (res != VK_SUCCESS) {
-				if (error != nullptr) *error = "gvk : fail to create windows surface";
-				return false;
-			}
-		}
-#endif
 		//create swap chain for the surface
 		{
 			//get surface's supported formats
@@ -623,7 +658,7 @@ namespace gvk {
 
 			VkColorSpaceKHR rt_color_space = VK_COLOR_SPACE_MAX_ENUM_KHR;
 			for (uint32 i = 0; i < surface_formats.size();i++) {
-				if (surface_formats[i].format == rt_format) {
+				if (surface_formats[i].format == img_format) {
 					rt_color_space = surface_formats[i].colorSpace;
 					break;
 				}
@@ -649,7 +684,7 @@ namespace gvk {
 			//images created by swap chain should have these following flags by default
 			swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 				| VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-			swap_chain_info.imageFormat = rt_format;
+			swap_chain_info.imageFormat = img_format;
 			swap_chain_info.imageColorSpace = rt_color_space;
 			swap_chain_info.imageArrayLayers = 1;
 
@@ -668,7 +703,7 @@ namespace gvk {
 			m_SwapChainCreateInfo = swap_chain_info;
 
 			// fail to update the swap chain
-			if (!UpdateSwapChain(window,error)) {
+			if (!UpdateSwapChain(error)) {
 				return false;
 			}
 
@@ -691,7 +726,7 @@ namespace gvk {
 		return true;
 	}
 
-	bool Context::UpdateSwapChain(Window* window, std::string* error)
+	bool Context::UpdateSwapChain(std::string* error)
 	{
 		gvk_assert(m_Surface != NULL);
 		// Reset frame index every time swap chain is updated
@@ -704,8 +739,8 @@ namespace gvk {
 		VkExtent2D swap_chain_ext = surface_capability.currentExtent;
 		// Width and height are either both -1, or both not -1.
 		if (swap_chain_ext.width == (uint32)-1) {
-			swap_chain_ext.height = window->GetHeight();
-			swap_chain_ext.width = window->GetWidth();
+			swap_chain_ext.height = m_Window->GetHeight();
+			swap_chain_ext.width = m_Window->GetWidth();
 		}
 
 		VkSurfaceTransformFlagBitsKHR swap_chain_transform{};

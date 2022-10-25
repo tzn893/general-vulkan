@@ -78,13 +78,29 @@ namespace gvk {
 		bool InitializeInstance(GvkInstanceCreateInfo& info,std::string* error);
 		
 		/// <summary>
-		/// Initialize the device in the context
+		/// Initialize the physical device, device and surface in the context
 		/// A present queue will be created along with the device
 		/// </summary>
 		/// <param name="create">the info structure necessary for create of device</param>
 		/// <param name="error">if the initiailization fails return error message</param>
 		/// <returns>if the initialization succeed</returns>
 		bool InitializeDevice(const GvkDeviceCreateInfo& create, std::string* error);
+
+		/// <summary>
+		/// Enumerate all available back buffer formats on this physical device
+		/// Is useful when creating swap chain
+		/// </summary>
+		/// <returns>available back buffer formats for swap chain</returns>
+		std::vector<VkFormat> EnumerateAvailableBackbufferFormats();
+
+		/// <summary>
+		/// A helper function for EnumerateAvailableBackbufferFormats
+		/// If formats in hints are supported, pick the first format in hints supported by surface
+		/// ,otherwise pick the first supported back buffer format.
+		/// </summary>
+		/// <param name="hints">format hints</param>
+		/// <returns>supported back buffer format</returns>
+		VkFormat			  PickBackbufferFormatByHint(const std::vector<VkFormat>& hints);
 
 
 		/// <summary>
@@ -123,7 +139,7 @@ namespace gvk {
 		/// <param name="img_format"></param>
 		/// <param name="error"></param>
 		/// <returns></returns>
-		bool CreateSwapChain(Window* window,VkFormat img_format,std::string* error);
+		bool CreateSwapChain(VkFormat img_format,std::string* error);
 		
 		/// <summary>
 		/// should be called every time window is resized
@@ -131,7 +147,7 @@ namespace gvk {
 		/// <param name="window"></param>
 		/// <param name="error"></param>
 		/// <returns></returns>
-		bool UpdateSwapChain(Window* window,std::string* error);
+		bool UpdateSwapChain(std::string* error);
 
 		/// <summary>
 		/// Create a command queue from pre-required command queues.

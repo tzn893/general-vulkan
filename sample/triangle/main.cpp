@@ -8,11 +8,11 @@
 
 
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
-constexpr VkFormat back_buffer_foramt = VK_FORMAT_B8G8R8A8_UNORM;
 
 using namespace gvk;
 
 float current_time() {
+
 	using namespace std::chrono;
 	static uint64_t start = 0;
 	if (start == 0) start = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
@@ -30,6 +30,8 @@ std::tuple<void*, uint32, uint32> load_image()
 
 int main() 
 {
+	VkFormat back_buffer_format;
+
 	ptr<gvk::Window> window;
 	require(gvk::Window::Create(600, 600, "triangle"), window);
 
@@ -43,7 +45,8 @@ int main()
 	GvkInstanceCreateInfo instance_create;
 	instance_create.AddInstanceExtension(GVK_INSTANCE_EXTENSION_DEBUG);
 	instance_create.AddLayer(GVK_LAYER_DEBUG);
-	
+	instance_create.AddLayer(GVK_LAYER_FPS_MONITOR);
+
 	context->InitializeInstance(instance_create, &error);
 
 	GvkDeviceCreateInfo device_create;
@@ -52,7 +55,8 @@ int main()
 
 	context->InitializeDevice(device_create, &error);
 
-	context->CreateSwapChain(window.get(), back_buffer_foramt, &error);
+	back_buffer_format = context->PickBackbufferFormatByHint({ VK_FORMAT_R8G8B8A8_UNORM,VK_FORMAT_R8G8B8A8_UNORM });
+	context->CreateSwapChain(back_buffer_format, &error);
 
 	const char* include_directorys[] = { TRIANGLE_SHADER_DIRECTORY};
 
@@ -66,7 +70,7 @@ int main()
 		&error);
 
 	GvkRenderPassCreateInfo render_pass_create;
-	uint32 color_attachment = render_pass_create.AddAttachment(0, back_buffer_foramt,VK_SAMPLE_COUNT_1_BIT,
+	uint32 color_attachment = render_pass_create.AddAttachment(0, back_buffer_format,VK_SAMPLE_COUNT_1_BIT,
 		VK_ATTACHMENT_LOAD_OP_CLEAR,VK_ATTACHMENT_STORE_OP_STORE,
 		VK_ATTACHMENT_LOAD_OP_DONT_CARE,VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -207,7 +211,7 @@ int main()
 		if (window->OnResize()) 
 		{
 			std::string error;
-			if (!context->UpdateSwapChain(window.get(), &error))
+			if (!context->UpdateSwapChain(&error))
 			{
 				printf("%s", error.c_str());
 				break;
