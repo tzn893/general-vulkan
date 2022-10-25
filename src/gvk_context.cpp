@@ -75,6 +75,11 @@ namespace gvk {
 		return context;
 	}
 
+	uint32_t Context::GetBackBufferCount()
+	{
+		return m_BackBufferCount;
+	}
+
 	static std::vector<const char*> target_extensions[GVK_INSTANCE_EXTENSION_COUNT] = {
 			{VK_EXT_DEBUG_UTILS_EXTENSION_NAME},//GVK_INSTANCE_EXTENSION_DEBUG
 	};

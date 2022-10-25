@@ -69,6 +69,12 @@ namespace gvk {
 			uint32_t api_version,ptr<Window> window, std::string* error);
 
 		/// <summary>
+		/// Get count of back buffers in swap chain
+		/// </summary>
+		/// <returns>count of back buffers</returns>
+		uint32_t GetBackBufferCount();
+
+		/// <summary>
 		/// Initialize the instance in the context
 		/// This function should be called before any other function call
 		/// </summary>
