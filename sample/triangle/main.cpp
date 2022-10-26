@@ -185,7 +185,7 @@ int main()
 						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 						VK_ACCESS_TRANSFER_WRITE_BIT,
 						VK_ACCESS_SHADER_READ_BIT).Emit(cmd_buffer);
-			},gvk::SemaphoreInfo(),true
+			},gvk::SemaphoreInfo(),NULL,true
 		);
 	}
 
@@ -206,8 +206,12 @@ int main()
 		.Emit(context->GetDevice());
 
 	uint32 i = 0;
+	VkFence fence;
+	require(context->CreateFence(0), fence);
+
 	while (!window->ShouldClose()) 
 	{
+		vkResetFences(context->GetDevice(), 1, &fence);
 		if (window->OnResize()) 
 		{
 			std::string error;
@@ -306,14 +310,14 @@ int main()
 		queue->Submit(&cmd_buffer, 1,
 			gvk::SemaphoreInfo()
 			.Wait(acquire_image_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-			.Signal(color_output_finish)
+			.Signal(color_output_finish),fence
 		);
 
 		context->Present(gvk::SemaphoreInfo().Wait(color_output_finish,0));
 
-		queue->StallForDevice();
-
 		window->UpdateWindow();
+		
+		vkWaitForFences(context->GetDevice(), 1, &fence, VK_TRUE, 0xffffffff);
 	}
 
 	for (auto fb : frame_buffers) context->DestroyFrameBuffer(fb);

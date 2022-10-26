@@ -88,10 +88,14 @@ namespace gvk {
 
 
 	VkResult CommandQueue::Submit(VkCommandBuffer* cmd_buffers, uint32 cmd_buffer_count,
-		const SemaphoreInfo& semaphore_info, bool stall_for_host)
+		const SemaphoreInfo& semaphore, VkFence target_fence, bool stall_for_device /*= false*/)
 	{
+		gvk_assert(target_fence == NULL || !stall_for_device);
 		//reset the command queue's fence before submitting
-		vkResetFences(m_Device, 1, &m_Fence);
+		if (stall_for_device) 
+		{
+			vkResetFences(m_Device, 1, &m_Fence);
+		}
 
 		VkSubmitInfo info{};
 		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -100,39 +104,30 @@ namespace gvk {
 		info.commandBufferCount = cmd_buffer_count;
 		info.pCommandBuffers = cmd_buffers;
 		
-		info.pWaitDstStageMask = semaphore_info.wait_semaphore_stages.data();
-		info.pSignalSemaphores = semaphore_info.signal_semaphores.data();
-		info.signalSemaphoreCount = semaphore_info.signal_semaphores.size();
+		info.pWaitDstStageMask = semaphore.wait_semaphore_stages.data();
+		info.pSignalSemaphores = semaphore.signal_semaphores.data();
+		info.signalSemaphoreCount = semaphore.signal_semaphores.size();
 
-		info.waitSemaphoreCount = semaphore_info.wait_semaphores.size();
-		info.pWaitSemaphores = semaphore_info.wait_semaphores.data();
+		info.waitSemaphoreCount = semaphore.wait_semaphores.size();
+		info.pWaitSemaphores = semaphore.wait_semaphores.data();
 
-		VkResult vkrs = vkQueueSubmit(m_CommandQueue, 1, &info, m_Fence);
+		
+		if (stall_for_device) target_fence = m_Fence;
+		VkResult vkrs = vkQueueSubmit(m_CommandQueue, 1, &info, target_fence);
 		if (vkrs != VK_SUCCESS) return vkrs;
 
-		if (stall_for_host) {
-			return StallForDevice();
+		if (stall_for_device) 
+		{
+			return vkWaitForFences(m_Device, 1, &m_Fence, VK_TRUE, 0xffffffff);
 		}
 
 		return VK_SUCCESS;
 	}
 
-	VkResult CommandQueue::StallForDevice(int64_t _timeout)
-	{
-		uint64_t timeout;
-		if (_timeout < 0) 
-		{
-			timeout = 0xffffffff;
-		}
-		else 
-		{
-			timeout = _timeout;
-		}
-		return vkWaitForFences(m_Device, 1, &m_Fence, VK_TRUE, timeout);
-	}
+	
 
 	VkResult CommandQueue::SubmitTemporalCommand(std::function<void(VkCommandBuffer)> command, 
-		const SemaphoreInfo& semaphore_info, bool stall_for_host)
+		const SemaphoreInfo& info, VkFence target_fence, bool stall_for_host)
 	{
 		if (m_TemporalBufferPool == NULL) 
 		{
@@ -180,7 +175,7 @@ namespace gvk {
 		vkrs = vkEndCommandBuffer(cmd_buffer);
 		if (vkrs != VK_SUCCESS) return vkrs;
 
-		return Submit(&cmd_buffer, 1, semaphore_info, stall_for_host);
+		return Submit(&cmd_buffer, 1, info, target_fence, stall_for_host);
 	}
 
 	CommandQueue::~CommandQueue()

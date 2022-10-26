@@ -73,27 +73,20 @@ namespace gvk {
 		/// <param name="stall_for_device">If this flag is set to true,the host wait for this queue until the excution finishes</param>
 		/// <returns>VkResult of the submission</returns>
 		VkResult Submit(VkCommandBuffer* cmd_buffers,uint32 cmd_buffer_count,
-			const SemaphoreInfo& info,
+			const SemaphoreInfo& info, VkFence target_fence,
 			bool stall_for_device = false);
 
-		/// <summary>
-		/// Host will wait for the queue finishes execution or time out. 
-		/// </summary>
-		/// <param name="timeout">The time out time.Wait forever if the timeout value is negative</param>
-		/// <returns>VkResult of the operation</returns>
-		VkResult StallForDevice(int64_t timeout = -1);
-		
 		
 		/// <summary>
 		/// Create a command buffer, record command to it and submit it immediately
-		///	This function is handy for command buffers only excuted once. e.g.: commands for uploading resources
+		///	This function is handy for command buffers only executed once. e.g.: commands for uploading resources
 		/// </summary>
 		/// <param name="command">a function record command to command buffer</param>
 		/// <param name="info">the semaphores to wait and signal</param>
 		/// <param name="stall_for_host">If this flag is set to true,the host wait for this queue until the excution finishes</param>
 		/// <returns>VkResult of the operation</returns>
 		VkResult SubmitTemporalCommand(std::function<void(VkCommandBuffer)> command,
-			const SemaphoreInfo& info,bool stall_for_host);
+			const SemaphoreInfo& info, VkFence target_fence,bool stall_for_host);
 		
 		~CommandQueue();
 	private:
