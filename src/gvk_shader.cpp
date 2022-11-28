@@ -116,6 +116,20 @@ namespace gvk {
 				options += "=" + std::string(macros.value[i]);
 			}
 		}
+		
+		if (ext == ".vert")
+		{
+			options += " -DVERTEX_SHADER";
+		}
+		if (ext == ".geom")
+		{
+			options += " -DGEOMETRY_SHADER";
+		}
+		if (ext == ".frag")
+		{
+			options += " -DFRAGMENT_SHADER";
+		}
+
 		//add include directories to glslc
 		for (uint32 i = 0; i < include_directory_count; i++) {
 			options += " -I " + std::string(include_directories[i]);

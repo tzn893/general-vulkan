@@ -71,7 +71,6 @@ struct mat3x2
 
 #define VERTEX_INPUT(VT) struct VT{
 
-//TODO : support multiple vertex input binding point 
 #define VERTEX_ATTRIBUTE_BINDING(loca,binding,type,name) type name; 
 
 #define VERTEX_INPUT_END(VT) };
@@ -82,11 +81,15 @@ struct mat3x2
 
 #define PUSH_CONSTANT_END(PC) };
 
+#ifdef VERTEX_SHADER
+
 #define VERTEX_INPUT(VT) 
 
 #define VERTEX_ATTRIBUTE_BINDING(loca,binding,type,name) layout(location=loca) in type name; 
 
 #define VERTEX_INPUT_END(VT) 
+
+#endif
 
 #endif
 

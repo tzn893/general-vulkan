@@ -317,7 +317,8 @@ namespace gvk {
 		//currently chosen device's queue create info
 		std::vector<VkDeviceQueueCreateInfo> curr_queue_create;
 		
-		for (auto phy_device : phy_devices) {
+		for (auto phy_device : phy_devices) 
+		{
 			PhysicalDevicePropertiesAndFeatures device_prop_feat;
 
 			//ray tracing extension is enabled
@@ -344,6 +345,20 @@ namespace gvk {
 			if (ray_tracing_enabled) {
 				if (!device_prop_feat.RayTracingFeatures().rayTracingPipeline)
 					continue;
+			}
+
+			//check if  required features are supported
+			const VkBool32* required_feature = (const VkBool32*)&create.required_features;
+			const VkBool32* device_feature = (const VkBool32*)&device_prop_feat.DeviceFeatures();
+			constexpr uint32 device_feature_count = sizeof(create.required_features) / sizeof(VkBool32);
+			for (uint32 i = 0;i < device_feature_count;i++) 
+			{
+				//a required feature is not supported by device 
+				if (*(required_feature + i) && !*(device_feature + i))
+				{
+					//find the next device
+					continue;
+				}
 			}
 			
 			//try to create command queues
@@ -391,9 +406,12 @@ namespace gvk {
 			VkDeviceQueueCreateInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,NULL}
 		);
 		std::vector<std::vector<float>>			priority_buffer(qf_props.size());
-		for (auto& req : create.required_queues) {
-			for (uint32 qfidx = 0; qfidx < qf_props.size();qfidx++) {
-				if ((req.flags & qf_props[qfidx].props.queueFlags) == req.flags) {
+		for (auto& req : create.required_queues) 
+		{
+			for (uint32 qfidx = 0; qfidx < qf_props.size();qfidx++) 
+			{
+				if ((req.flags & qf_props[qfidx].props.queueFlags) == req.flags) 
+				{
 					QueueInfo info;
 					//the queue families are sorted.the index member stores their true index
 					info.family_index = qf_props[qfidx].index;
@@ -424,6 +442,8 @@ namespace gvk {
 			dqc_idx++;
 		}
 
+		
+
 		VkDeviceCreateInfo device_create{};
 		device_create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		device_create.pNext = nullptr;
@@ -433,7 +453,7 @@ namespace gvk {
 		//device_create.enabledLayerCount is deprecated and ignored.
 		device_create.enabledExtensionCount = create.required_extensions.size();
 		device_create.ppEnabledExtensionNames = create.required_extensions.data();
-		device_create.pEnabledFeatures = nullptr;
+		device_create.pEnabledFeatures = &create.required_features;
 
 		if (vkCreateDevice(m_PhyDevice, &device_create, nullptr, &m_Device) != VK_SUCCESS) {
 			if (error != nullptr) *error = "gvk : fail to create device";
@@ -900,6 +920,9 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		break;
 	case GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS:
 		AddNotRepeatedElement(required_extensions, "VK_KHR_buffer_device_address");
+		break;
+	case GVK_DEVICE_EXTENSION_GEOMETRY_SHADER:
+		required_features.geometryShader = true;
 		break;
 	default:
 		gvk_assert(false);

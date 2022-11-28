@@ -16,24 +16,29 @@ enum GVK_LAYER {
 	GVK_LAYER_COUNT
 };
 
-enum GVK_INSTANCE_EXTENSION {
+enum GVK_INSTANCE_EXTENSION 
+{
 	GVK_INSTANCE_EXTENSION_DEBUG,
 	GVK_INSTANCE_EXTENSION_COUNT
 };
 
-enum GVK_DEVICE_EXTENSION {
+enum GVK_DEVICE_EXTENSION 
+{
 	GVK_DEVICE_EXTENSION_SWAP_CHAIN,
 	//ray tracing contains 3 extensions 
 	//acceleration structure,ray tracing pipeline,deferred host operation
 	GVK_DEVICE_EXTENSION_RAYTRACING,
 	GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS,
+	GVK_DEVICE_EXTENSION_GEOMETRY_SHADER,
 	GVK_DEVICE_EXTENSION_COUNT
 };
 
-struct GvkDeviceCreateInfo {
+struct GvkDeviceCreateInfo 
+{
 	//by default a present queue will be created
 	//other queues should be required when creating device
-	struct QueueRequireInfo {
+	struct QueueRequireInfo 
+	{
 		VkFlags flags;
 		uint32_t  count;
 		float   priority;
@@ -42,12 +47,14 @@ struct GvkDeviceCreateInfo {
 	GvkDeviceCreateInfo& RequireQueue(VkFlags queue_flags, uint32_t count, float priority = 1.0f);
 
 	std::vector<const char*> required_extensions;
+	VkPhysicalDeviceFeatures required_features;
 	GvkDeviceCreateInfo& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
-	GvkDeviceCreateInfo() {}
+	GvkDeviceCreateInfo() :required_features{} {}
 };
 
-struct GvkInstanceCreateInfo {
+struct GvkInstanceCreateInfo 
+{
 	GvkInstanceCreateInfo& AddInstanceExtension(GVK_INSTANCE_EXTENSION ext);
 	std::vector<GVK_INSTANCE_EXTENSION> required_instance_extensions;
 	

@@ -81,7 +81,7 @@ struct GvkGraphicsPipelineCreateInfo {
 	//TODO : currently we don't support tessellation or geometry stage 
 	//ptr<gvk::Shader> tess_control_shader;
 	//ptr<gvk::Shader> tess_evalue_shader;
-	//ptr<gvk::Shader> geometry_shader;
+	gvk::ptr<gvk::Shader> geometry_shader;
 
 	gvk::ptr<gvk::Shader> fragment_shader;
 

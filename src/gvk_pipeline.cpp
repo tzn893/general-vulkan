@@ -416,6 +416,13 @@ namespace gvk {
 		{
 			return std::nullopt;
 		}
+		if (info.geometry_shader != nullptr) 
+		{
+			if (!create_shader_stage(info.geometry_shader))
+			{
+				return std::nullopt;
+			}
+		}
 		if (!create_shader_stage(info.fragment_shader)) 
 		{
 			return std::nullopt;
