@@ -244,9 +244,13 @@ int main()
 				{
 					auto back_buffer = back_buffers[i];
 					context->DestroyFrameBuffer(frame_buffers[i]);
-					require(context->CreateFrameBuffer(render_pass, &back_buffer->GetViews()[0],
-						back_buffer->Info().extent.width, back_buffer->Info().extent.height), frame_buffers[i]);
+					if (auto v = context->CreateFrameBuffer(render_pass, &back_buffer->GetViews()[0],
+						back_buffer->Info().extent.width, back_buffer->Info().extent.height); v.has_value())
+						frame_buffers[i] = v.value();
+					else
+						return false;
 				}
+				return true;
 			}
 		,&error))
 		{
