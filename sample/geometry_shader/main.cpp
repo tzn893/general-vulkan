@@ -18,14 +18,6 @@ float current_time() {
 	return (float)(ms - start) / 1000.f;
 }
 
-std::tuple<void*, uint32, uint32> load_image()
-{
-	int width, height, comp;
-	std::string path = std::string(TRIANGLE_SHADER_DIRECTORY) + "/texture.jpg";
-	void* image = stbi_load(path.c_str(), &width, &height, &comp, 4);
-	return std::make_tuple(image, (uint32)width, (uint32)height);
-}
-
 int main()
 {
 	VkFormat back_buffer_format;

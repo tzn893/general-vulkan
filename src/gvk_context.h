@@ -225,10 +225,19 @@ namespace gvk {
 		/// acquire operation is finished so every command queue will use the image should wait for the
 		/// semaphore returned by this function
 		/// </summary>
+		/// <param name="res">the VkResult of this operation</param>
 		/// <param name="timeout">The timeout time wait for this operation.If timeout is less than 0,host will wait for this forever</param>
 		/// <param name="fence">The fence to signal after it finishes</param>
-		/// <returns>the acquired back buffer image,the back buffer's view,the semaphore to wait</returns>
-		opt<std::tuple<ptr<Image>, VkSemaphore>> AcquireNextImage(int64_t timeout = -1,VkFence fence = NULL);
+		/// <returns>the acquired back buffer image,the back buffer's view,the semaphore to wait and the image's index(for indexing frame buffer array)</returns>
+		opt<std::tuple<ptr<Image>, VkSemaphore,uint32>> AcquireNextImage(VkResult* res = NULL,int64_t timeout = -1,VkFence fence = NULL);
+
+		/// <summary>
+		/// If a resize event comes, resize swap chain and back buffer then acquire the next image
+		/// </summary>
+		/// <param name="timeout">The timeout time wait for this operation.If timeout is less than 0,host will wait for this forever</param>
+		/// <param name="fence">The fence to signal after it finishes</param>
+		/// <returns>the acquired back buffer image,the back buffer's view,the semaphore to wait and the image's index(for indexing frame buffer array)</returns>
+		opt<std::tuple<ptr<Image>, VkSemaphore, uint32>> AcquireNextImageAfterResize(std::function<void()> resize_call_back, std::string* error, int64_t timeout = -1, VkFence fence = NULL);
 
 
 		/// <summary>
@@ -304,6 +313,12 @@ namespace gvk {
 		/// <returns>created frame buffer</returns>
 		opt<VkFramebuffer>			  CreateFrameBuffer(ptr<RenderPass> render_pass,const VkImageView* views,
 			uint32_t width,uint32_t height,uint32_t layers = 1, VkFramebufferCreateFlags create_flags = 0);
+
+
+		/// <summary>
+		/// equal to vkWaitForDeviceIdle
+		/// </summary>
+		void						  WaitForDeviceIdle();
 
 		/// <summary>
 		/// destroy the created frame buffer

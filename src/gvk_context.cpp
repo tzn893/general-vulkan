@@ -225,6 +225,11 @@ namespace gvk {
 		return frame_buffer;
 	}
 
+	void Context::WaitForDeviceIdle()
+	{
+		vkDeviceWaitIdle(m_Device);
+	}
+
 	void Context::DestroyFrameBuffer(VkFramebuffer frame_buffer)
 	{
 		gvk_assert(frame_buffer != NULL);
@@ -836,17 +841,42 @@ namespace gvk {
 	
 
 
-	opt<std::tuple<ptr<gvk::Image>, VkSemaphore>> Context::AcquireNextImage(int64_t _timeout /*= -1*/,VkFence fence /*= NULL*/) {
+	gvk::opt<std::tuple<gvk::ptr<gvk::Image>, VkSemaphore,gvk::uint32>> Context::AcquireNextImage(VkResult* res /*= NULL*/,int64_t _timeout /*= -1*/,VkFence fence /*= NULL*/) {
 		gvk_assert(m_SwapChain != NULL);
 		uint32 timeout = _timeout < 0 ? UINT64_MAX : _timeout;
 		uint32 image_index;
-		if (vkAcquireNextImageKHR(m_Device, m_SwapChain, timeout, m_ImageAcquireSemaphore[m_CurrentFrameIndex],
-			fence, &image_index) != VK_SUCCESS) 
+		VkResult vkres = vkAcquireNextImageKHR(m_Device, m_SwapChain, timeout, m_ImageAcquireSemaphore[m_CurrentFrameIndex],
+			fence, &image_index);
+		if (res != NULL) *res = vkres;
+		if (vkres != VK_SUCCESS) 
 		{
 			return std::nullopt;
 		}
 		m_CurrentBackBufferImageIndex = image_index;
-		return std::make_tuple(m_BackBuffers[image_index], m_ImageAcquireSemaphore[m_CurrentFrameIndex]);
+		return std::make_tuple(m_BackBuffers[image_index], m_ImageAcquireSemaphore[m_CurrentFrameIndex],image_index);
+	}
+
+	gvk::opt<std::tuple<gvk::ptr<gvk::Image>, VkSemaphore, gvk::uint32>> Context::AcquireNextImageAfterResize(std::function<void()> resize_call_back, std::string* error, int64_t timeout /*= -1*/, VkFence fence /*= NULL*/)
+	{
+		VkResult rs;
+		if (auto var = AcquireNextImage(&rs, timeout, fence); var.has_value())
+		{
+			return var;
+		}
+		else if(rs == VK_ERROR_OUT_OF_DATE_KHR || m_Window->OnResize())
+		{
+			WaitForDeviceIdle();
+			if (!UpdateSwapChain(error))
+			{
+				return std::nullopt;
+			}
+			
+			resize_call_back();
+
+			return AcquireNextImage();
+		}
+
+		return std::nullopt;
 	}
 
 	VkResult Context::Present(const SemaphoreInfo& semaphore)

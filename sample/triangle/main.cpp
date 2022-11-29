@@ -58,6 +58,8 @@ int main()
 	back_buffer_format = context->PickBackbufferFormatByHint({ VK_FORMAT_R8G8B8A8_UNORM,VK_FORMAT_R8G8B8A8_UNORM });
 	context->CreateSwapChain(back_buffer_format, &error);
 
+	uint32 back_buffer_count = context->GetBackBufferCount();
+
 	const char* include_directorys[] = { TRIANGLE_SHADER_DIRECTORY};
 
 	auto vert = context->CompileShader("triangle.vert", gvk::ShaderMacros(),
@@ -125,13 +127,17 @@ int main()
 
 	ptr<gvk::CommandQueue> queue;
 	ptr<gvk::CommandPool>  pool;
-	VkCommandBuffer		   cmd_buffer;
+	std::vector<VkCommandBuffer>	cmd_buffers(back_buffer_count);
 	require(context->CreateQueue(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT), queue);
 	require(context->CreateCommandPool(queue.get()), pool);
-	require(pool->CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY), cmd_buffer);
+	for(uint32 i = 0;i < back_buffer_count;i++)
+		require(pool->CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY), cmd_buffers[i]);
 
-	VkSemaphore color_output_finish;
-	require(context->CreateVkSemaphore(),color_output_finish);
+	std::vector<VkSemaphore> color_output_finish(back_buffer_count);
+	for(uint32 i = 0;i < back_buffer_count;i++)
+	{
+		require(context->CreateVkSemaphore(), color_output_finish[i]);
+	}
 
 	GvkPushConstant push_constant_time, push_constant_rotation;
 	require(graphic_pipeline->GetPushConstantRange("time"), push_constant_time);
@@ -206,47 +212,53 @@ int main()
 		.Emit(context->GetDevice());
 
 	uint32 i = 0;
-	VkFence fence;
-	require(context->CreateFence(0), fence);
-
+	std::vector<VkFence> fence(back_buffer_count);
+	for (uint32 i = 0;i < back_buffer_count;i++) 
+	{
+		//it is handy when implementing frame in flight
+		require(context->CreateFence(VK_FENCE_CREATE_SIGNALED_BIT), fence[i]);
+	}
 	while (!window->ShouldClose()) 
 	{
-		vkResetFences(context->GetDevice(), 1, &fence);
-		if (window->OnResize()) 
-		{
-			std::string error;
-			if (!context->UpdateSwapChain(&error))
-			{
-				printf("%s", error.c_str());
-				break;
-			}
-			auto back_buffers = context->GetBackBuffers();
-			//recreate all the framebuffers
-			for (uint32 i = 0;i < back_buffers.size();i++)
-			{
-				auto back_buffer = back_buffers[i];
-				context->DestroyFrameBuffer(frame_buffers[i]);
-				require(context->CreateFrameBuffer(render_pass, &back_buffer->GetViews()[0],
-					back_buffer->Info().extent.width, back_buffer->Info().extent.height), frame_buffers[i]);
-			}
-			
-		}
+		uint32 current_frame_idx = context->CurrentFrameIndex();
+		vkWaitForFences(context->GetDevice(), 1, &fence[current_frame_idx], VK_TRUE, 0xffffffff);
+		vkResetFences(context->GetDevice(), 1, &fence[current_frame_idx]);
+		
 
+		VkCommandBuffer cmd_buffer = cmd_buffers[current_frame_idx];
 		vkResetCommandBuffer(cmd_buffer, 0);
 
 		VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 		begin.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
 		ptr<gvk::Image> back_buffer;
 		VkSemaphore acquire_image_semaphore;
-		if (auto v = context->AcquireNextImage(); v.has_value()) 
+		uint32	image_index = 0;
+		
+		std::string error;
+		if (auto v = context->AcquireNextImageAfterResize(
+			[&]()
+			{
+				auto back_buffers = context->GetBackBuffers();
+				//recreate all the framebuffers
+				for (uint32 i = 0; i < back_buffers.size(); i++)
+				{
+					auto back_buffer = back_buffers[i];
+					context->DestroyFrameBuffer(frame_buffers[i]);
+					require(context->CreateFrameBuffer(render_pass, &back_buffer->GetViews()[0],
+						back_buffer->Info().extent.width, back_buffer->Info().extent.height), frame_buffers[i]);
+				}
+			}
+		,&error))
 		{
-			auto [b,a] = v.value();
+			auto [b, a, i] = v.value();
 			back_buffer = b;
 			acquire_image_semaphore = a;
+			image_index = i;
 		}
 		else
 		{
-			return 0;
+			printf("%s", error.c_str());
+			break;
 		}
 
 		if (vkBeginCommandBuffer(cmd_buffer, &begin) != VK_SUCCESS) 
@@ -274,14 +286,13 @@ int main()
 		scissor.extent = VkExtent2D{ back_buffer->Info().extent.width,
 			back_buffer->Info().extent.height };
 
-		render_pass->Begin(frame_buffers[context->CurrentFrameIndex()],
+		render_pass->Begin(frame_buffers[image_index],
 			&cv,
 			{ {},VkExtent2D{ back_buffer->Info().extent.width,back_buffer->Info().extent.height} }, 
 			viewport,
 			scissor,
 			cmd_buffer
 		).Record([&]() {
-			vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipeline());
 			VkDescriptorSet descriptor_sets[] = { descriptor_set->GetDescriptorSet() };
 			vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipelineLayout(),
 				0, gvk_count_of(descriptor_sets), descriptor_sets, 0, NULL);
@@ -304,24 +315,23 @@ int main()
 			}
 		);
 
-
 		vkEndCommandBuffer(cmd_buffer);
 
 		queue->Submit(&cmd_buffer, 1,
 			gvk::SemaphoreInfo()
 			.Wait(acquire_image_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-			.Signal(color_output_finish),fence
+			.Signal(color_output_finish[current_frame_idx]), fence[current_frame_idx]
 		);
 
-		context->Present(gvk::SemaphoreInfo().Wait(color_output_finish,0));
+		context->Present(gvk::SemaphoreInfo().Wait(color_output_finish[current_frame_idx], 0));
 
 		window->UpdateWindow();
-		
-		vkWaitForFences(context->GetDevice(), 1, &fence, VK_TRUE, 0xffffffff);
 	}
+	context->WaitForDeviceIdle();
 
 	for (auto fb : frame_buffers) context->DestroyFrameBuffer(fb);
-	context->DestroyVkSemaphore(color_output_finish);
+	for(auto sm : color_output_finish)  context->DestroyVkSemaphore(sm);
+	for (auto f : fence) context->DestroyFence(f);
 	context->DestroySampler(sampler);
 
 	buffer = nullptr;
