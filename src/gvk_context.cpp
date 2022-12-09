@@ -856,7 +856,7 @@ namespace gvk {
 		return std::make_tuple(m_BackBuffers[image_index], m_ImageAcquireSemaphore[m_CurrentFrameIndex],image_index);
 	}
 
-	gvk::opt<std::tuple<gvk::ptr<gvk::Image>, VkSemaphore, gvk::uint32>> Context::AcquireNextImageAfterResize(std::function<bool()> resize_call_back, std::string* error, int64_t timeout /*= -1*/, VkFence fence /*= NULL*/)
+	gvk::opt<std::tuple<gvk::ptr<gvk::Image>, VkSemaphore, gvk::uint32>> Context::AcquireNextImageAfterResize(std::function<bool(uint32,uint32)> resize_call_back, std::string* error, int64_t timeout /*= -1*/, VkFence fence /*= NULL*/)
 	{
 		VkResult rs;
 		if (auto var = AcquireNextImage(&rs, timeout, fence); var.has_value())
@@ -871,7 +871,7 @@ namespace gvk {
 				return std::nullopt;
 			}
 			
-			if (!resize_call_back())
+			if (!resize_call_back(m_Window->GetWidth(),m_Window->GetHeight()))
 			{
 				return std::nullopt;
 			}

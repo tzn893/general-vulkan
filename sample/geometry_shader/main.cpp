@@ -139,26 +139,6 @@ int main()
 	while (!window->ShouldClose())
 	{
 		vkResetFences(context->GetDevice(), 1, &fence);
-		if (window->OnResize())
-		{
-			std::string error;
-			if (!context->UpdateSwapChain(&error))
-			{
-				printf("%s", error.c_str());
-				break;
-			}
-			auto back_buffers = context->GetBackBuffers();
-			//recreate all the framebuffers
-			for (uint32 i = 0; i < back_buffers.size(); i++)
-			{
-				auto back_buffer = back_buffers[i];
-				context->DestroyFrameBuffer(frame_buffers[i]);
-				require(context->CreateFrameBuffer(render_pass, &back_buffer->GetViews()[0],
-					back_buffer->Info().extent.width, back_buffer->Info().extent.height), frame_buffers[i]);
-			}
-
-		}
-
 
 		vkResetCommandBuffer(cmd_buffer, 0);
 
@@ -166,15 +146,37 @@ int main()
 		begin.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
 		ptr<gvk::Image> back_buffer;
 		VkSemaphore acquire_image_semaphore;
-		if (auto v = context->AcquireNextImage(); v.has_value())
+		uint32 image_index;
+		
+		std::string error;
+		if (auto v = context->AcquireNextImageAfterResize(
+			[&](uint32, uint32)
+			{
+				auto back_buffers = context->GetBackBuffers();
+				//recreate all the framebuffers
+				for (uint32 i = 0; i < back_buffers.size(); i++)
+				{
+					auto back_buffer = back_buffers[i];
+					context->DestroyFrameBuffer(frame_buffers[i]);
+					if (auto v = context->CreateFrameBuffer(render_pass, &back_buffer->GetViews()[0],
+						back_buffer->Info().extent.width, back_buffer->Info().extent.height); v.has_value())
+						frame_buffers[i] = v.value();
+					else
+						return false;
+				}
+				return true;
+			}
+			, &error))
 		{
-			auto [b, a] = v.value();
+			auto [b, a, i] = v.value();
 			back_buffer = b;
 			acquire_image_semaphore = a;
+			image_index = i;
 		}
 		else
 		{
-			return 0;
+			printf("%s", error.c_str());
+			break;
 		}
 
 		if (vkBeginCommandBuffer(cmd_buffer, &begin) != VK_SUCCESS)
@@ -202,7 +204,7 @@ int main()
 		scissor.extent = VkExtent2D{ back_buffer->Info().extent.width,
 			back_buffer->Info().extent.height };
 
-		render_pass->Begin(frame_buffers[context->CurrentFrameIndex()],
+		render_pass->Begin(frame_buffers[image_index],
 			&cv,
 			{ {},VkExtent2D{ back_buffer->Info().extent.width,back_buffer->Info().extent.height} },
 			viewport,

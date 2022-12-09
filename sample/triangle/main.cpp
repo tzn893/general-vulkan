@@ -236,7 +236,7 @@ int main()
 		
 		std::string error;
 		if (auto v = context->AcquireNextImageAfterResize(
-			[&]()
+			[&](uint32,uint32)
 			{
 				auto back_buffers = context->GetBackBuffers();
 				//recreate all the framebuffers

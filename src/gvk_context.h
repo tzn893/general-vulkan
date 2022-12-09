@@ -237,7 +237,7 @@ namespace gvk {
 		/// <param name="timeout">The timeout time wait for this operation.If timeout is less than 0,host will wait for this forever</param>
 		/// <param name="fence">The fence to signal after it finishes</param>
 		/// <returns>the acquired back buffer image,the back buffer's view,the semaphore to wait and the image's index(for indexing frame buffer array)</returns>
-		opt<std::tuple<ptr<Image>, VkSemaphore, uint32>> AcquireNextImageAfterResize(std::function<bool()> resize_call_back, std::string* error, int64_t timeout = -1, VkFence fence = NULL);
+		opt<std::tuple<ptr<Image>, VkSemaphore, uint32>> AcquireNextImageAfterResize(std::function<bool(uint32,uint32)> resize_call_back, std::string* error, int64_t timeout = -1, VkFence fence = NULL);
 
 
 		/// <summary>
