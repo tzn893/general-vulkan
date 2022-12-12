@@ -69,17 +69,16 @@ struct mat3x2
 
 #define PUSH_CONSTANT_END(PC) };
 
-#define VERTEX_INPUT(VT) struct VT{
-
-#define VERTEX_ATTRIBUTE_BINDING(loca,binding,type,name) type name; 
-
-#define VERTEX_INPUT_END(VT) };
-
 #else
 
 #define PUSH_CONSTANT(PC) layout(push_constant) uniform PC {
 
 #define PUSH_CONSTANT_END(PC) };
+
+
+#endif
+
+
 
 #ifdef VERTEX_SHADER
 
@@ -89,7 +88,13 @@ struct mat3x2
 
 #define VERTEX_INPUT_END(VT) 
 
-#endif
+#else
+
+#define VERTEX_INPUT(VT) struct VT{
+
+#define VERTEX_ATTRIBUTE_BINDING(loca,binding,type,name) type name; 
+
+#define VERTEX_INPUT_END(VT) };
 
 #endif
 
