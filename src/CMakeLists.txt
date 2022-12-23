@@ -1,7 +1,7 @@
 file(GLOB GVK_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/shader/shader_common.cpp)
 file(GLOB GVK_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/*.h ${CMAKE_CURRENT_SOURCE_DIR}/shader/shader_common.h)
 
-add_library(gvk ${GVK_HEADER} ${GVK_SOURCE} 
+add_library(gvk STATIC ${GVK_HEADER} ${GVK_SOURCE} 
     ${GVK_SPIRV_SOURCE} 
     ${GVK_SPIRV_INCLUDE}/spirv_reflect.h
 )
