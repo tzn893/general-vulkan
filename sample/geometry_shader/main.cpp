@@ -70,8 +70,8 @@ int main()
 		VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-	render_pass_create.AddSubpass(0, VK_PIPELINE_BIND_POINT_GRAPHICS);
-	render_pass_create.AddSubpassColorAttachment(0, color_attachment);
+	uint32 sub_pass_idx = render_pass_create.AddSubpass(0, VK_PIPELINE_BIND_POINT_GRAPHICS);
+	render_pass_create.AddSubpassColorAttachment(sub_pass_idx, color_attachment);
 
 	render_pass_create.AddSubpassDependency(VK_SUBPASS_EXTERNAL, 0,
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,

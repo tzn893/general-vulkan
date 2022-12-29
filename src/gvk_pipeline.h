@@ -176,7 +176,7 @@ struct GvkRenderPassCreateInfo : public VkRenderPassCreateInfo
 		VkAttachmentStoreOp store,VkAttachmentLoadOp stencil_load,VkAttachmentStoreOp stencil_store,
 		VkImageLayout init_layout,VkImageLayout end_layout);
 
-	void	AddSubpass(VkSubpassDescriptionFlags flags, VkPipelineBindPoint bind_point);
+	uint32_t AddSubpass(VkSubpassDescriptionFlags flags, VkPipelineBindPoint bind_point);
 	void	AddSubpassColorAttachment(uint32_t subpass_index,uint32_t attachment_index);
 	void	AddSubpassDepthStencilAttachment(uint32_t subpass_index,uint32_t attachment_index);
 	void	AddSubpassInputAttachment(uint32_t subpass_index,uint32_t attachment_index,VkImageLayout layout);

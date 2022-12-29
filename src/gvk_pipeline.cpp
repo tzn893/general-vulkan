@@ -962,7 +962,7 @@ uint32 GvkRenderPassCreateInfo::AddAttachment(VkAttachmentDescriptionFlags flag,
 	return m_Attachment.size() - 1;
 }
 
-void GvkRenderPassCreateInfo::AddSubpass(VkSubpassDescriptionFlags flags, VkPipelineBindPoint bind_point)
+uint32_t GvkRenderPassCreateInfo::AddSubpass(VkSubpassDescriptionFlags flags, VkPipelineBindPoint bind_point)
 {
 	VkSubpassDescription desc{};
 	desc.flags = flags;
@@ -975,6 +975,8 @@ void GvkRenderPassCreateInfo::AddSubpass(VkSubpassDescriptionFlags flags, VkPipe
 
 	subpassCount = m_Subpasses.size();
 	pSubpasses = m_Subpasses.data();
+
+	return m_Subpasses.size() - 1;
 }
 
 void GvkRenderPassCreateInfo::AddSubpassColorAttachment(uint32 subpass_index, uint32 attachment_index)
