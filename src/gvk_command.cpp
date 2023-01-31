@@ -7,7 +7,7 @@ namespace gvk {
 	{
 		uint32 queue_idx = 0;
 		for (auto queue : m_RequiredQueueInfos) {
-			if (queue.flags == flags && queue.priority == priority) {
+			if ((queue.flags & flags) == flags && queue.priority == priority) {
 				break;
 			}
 			queue_idx++;

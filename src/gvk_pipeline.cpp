@@ -61,7 +61,7 @@ namespace gvk {
 				{
 					//this layout is not included in layout list create a new layout for this set
 					auto opt_layout = context.CreateDescriptorSetLayout({ shader }, set->set, nullptr);
-					//this operation must success or something wrong with my code
+					//TODO: what happens if this operation fails? 
 					gvk_assert(opt_layout.has_value());
 					internal_layout.push_back(opt_layout.value());
 					descriptor_layouts.push_back(opt_layout.value()->GetLayout());
@@ -498,9 +498,9 @@ namespace gvk {
 			return std::nullopt;
 		}
 
-		create_info.stage.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		create_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		create_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-		create_info.stage.pName = info.shader->Name().c_str();
+		create_info.stage.pName = info.shader->GetEntryPointName();
 		
 		DescriptorLayoutInfoHelper helper(info.descriptor_layuot_hint, *this);
 		if (!helper.CollectDescriptorLayoutInfo(info.shader)) 
@@ -601,7 +601,7 @@ namespace gvk {
 	{
 		for (auto& layout : m_InternalDescriptorSetLayouts) 
 		{
-			if (layout->GetSetID() == set && (layout->GetShaderStageBits() & stage)) 
+			if (layout->GetSetID() == set && (layout->GetShaderStageBits() & stage) == stage) 
 			{
 				return layout;
 			}

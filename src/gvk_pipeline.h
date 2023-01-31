@@ -161,7 +161,7 @@ struct GvkComputePipelineCreateInfo
 {
 	gvk::ptr<gvk::Shader>		shader;
 
-	GvkDescriptorLayoutHint	descriptor_layuot_hint;
+	GvkDescriptorLayoutHint		descriptor_layuot_hint;
 
 	gvk::ptr<gvk::RenderPass>	render_pass;
 	uint32_t					subpass_index;

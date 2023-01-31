@@ -1,0 +1,52 @@
+#version 450
+
+//code from https://www.shadertoy.com/view/3s33W4
+layout(push_constant) uniform JuliaPushConstant
+{
+    vec2  p_resolution;
+    float p_time;
+    float p_speed;
+};
+
+//specify a writeonly image 
+layout (binding = 0, rgba8) uniform writeonly image2D o_image;
+
+//equal to [numthreads(16,16)] in hlsl
+layout (local_size_x = 16,local_size_y = 16) in;
+
+vec2 image_number_mul(vec2 x,vec2 y)
+{
+    return vec2(x.x * y.x - x.y * y.y, x.x * y.y + x.y * y.x);
+}
+
+void main()
+{
+    ivec2 t_coord = ivec2(gl_GlobalInvocationID.x , gl_GlobalInvocationID.y);
+    
+    if(t_coord.x >= p_resolution.x || t_coord.y >= p_resolution.y)
+        return;
+
+    vec2  z0 = 5 * vec2(t_coord / p_resolution.x - vec2(0.5,0.27));
+    vec2  c  = cos(p_time) * vec2(cos(p_time * p_speed),sin(p_time * p_speed));
+
+    vec2 col = vec2(0,0);
+    for(int i = 0;i < 500;i++)
+    {
+        vec2 z   = image_number_mul(z0,z0) + c;
+        float mq = dot(z,z);
+        if(mq > 4.0)
+        {
+            col = vec2(float(i) / 20.0,0);
+            break;
+        }
+        else
+        {
+            z0 = z;
+        }
+
+        col = vec2(mq / 2.,mq / 2.);
+    }
+
+    //store computed result to output image
+    imageStore(o_image,t_coord,vec4(col,0,1));
+}

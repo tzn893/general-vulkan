@@ -2,9 +2,6 @@
 #include "shader.h"
 #include <chrono>
 
-
-
-
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 
 using namespace gvk;
