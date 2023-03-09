@@ -4,6 +4,9 @@ file(GLOB SHADER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/shader/*.cpp)
 file(GLOB TRIANGLE_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/triangle/*.cpp)
 file(GLOB TRIANGLE_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/triangle/*.h)
 
+file(GLOB CUBE_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/cube/*.cpp)
+file(GLOB CUBE_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/cube/*.h)
+
 file(GLOB GEOMETRY_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/geometry_shader/*.cpp)
 file(GLOB GEOMETRY_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/geometry_shader/*.h)
 file(GLOB GEOMETRY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/geometry_shader/geom.*)
@@ -17,6 +20,7 @@ add_executable(shader-test ${SHADER_SOURCE})
 add_executable(triangle ${TRIANGLE_SOURCE} ${TRIANGLE_HEADER})
 add_executable(geometry ${GEOMETRY_SOURCE} ${GEOMETRY_HEADER} ${GEOMETRY_SHADER})
 add_executable(compute ${COMPUTE_SOURCE} ${COMPUTE_SHADER})
+add_executable(cube ${CUBE_SOURCE} ${CUBE_HEADER})
 
 target_link_libraries(window-test gvk)
 
@@ -32,3 +36,6 @@ target_link_libraries(geometry gvk)
 
 add_compile_definitions(COMPUTE_SHADER_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/compute")
 target_link_libraries(compute gvk)
+
+add_compile_definitions(CUBE_SHADER_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/cube")
+target_link_libraries(cube gvk)

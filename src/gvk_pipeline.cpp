@@ -882,7 +882,7 @@ GvkGraphicsPipelineCreateInfo::DepthStencilStateInfo::DepthStencilStateInfo()
 	front = VkStencilOpState{};
 	back = VkStencilOpState{};
 	//max depth bound and min depth bound must be set by user manually if user enables depth bound test
-	maxDepthBounds = 0.f;
+	maxDepthBounds = 1.f;
 	minDepthBounds = 0.f;
 	enable_depth_stencil = false;
 }
@@ -1007,7 +1007,7 @@ void GvkRenderPassCreateInfo::AddSubpassDepthStencilAttachment(uint32 subpass_in
 
 	VkAttachmentReference ref{};
 	ref.attachment = attachment_index;
-	ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	subpass_attachment = ref;
 	subpass.pDepthStencilAttachment = &subpass_attachment;
@@ -1023,7 +1023,7 @@ void GvkRenderPassCreateInfo::AddSubpassInputAttachment(uint32 subpass_index, ui
 
 	VkAttachmentReference ref{};
 	ref.attachment = attachment_index;
-	ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	ref.layout = layout;
 
 	subpass_attachments.push_back(ref);
 

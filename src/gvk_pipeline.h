@@ -170,6 +170,12 @@ struct GvkComputePipelineCreateInfo
 struct GvkRenderPassCreateInfo : public VkRenderPassCreateInfo
 {
 	GvkRenderPassCreateInfo();
+	uint32_t	AddColorAttachment(VkAttachmentDescriptionFlags flag, VkFormat format, VkSampleCountFlagBits sample_counts, VkAttachmentLoadOp load,
+		VkAttachmentStoreOp store, VkImageLayout init_layout, VkImageLayout end_layout)
+	{
+		return AddAttachment(flag, format, sample_counts, load, store, VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			init_layout, end_layout);
+	}
 
 	uint32_t	AddAttachment(VkAttachmentDescriptionFlags flag,VkFormat format,
 		VkSampleCountFlagBits sample_counts,VkAttachmentLoadOp load,
