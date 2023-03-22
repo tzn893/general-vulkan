@@ -34,6 +34,10 @@ namespace gvk {
 		friend class RenderPass;
 	public:
 		void Record(std::function<void()> commands);
+
+		RenderPassInlineContent& NextSubPass(std::function<void()> commands);
+		void EndPass(std::function<void()> commands);
+
 	private:
 		RenderPassInlineContent(VkFramebuffer framebuffer,VkCommandBuffer command_buffer);
 
@@ -182,7 +186,7 @@ struct GvkRenderPassCreateInfo : public VkRenderPassCreateInfo
 		VkAttachmentStoreOp store,VkAttachmentLoadOp stencil_load,VkAttachmentStoreOp stencil_store,
 		VkImageLayout init_layout,VkImageLayout end_layout);
 
-	uint32_t AddSubpass(VkSubpassDescriptionFlags flags, VkPipelineBindPoint bind_point);
+	uint32_t AddSubpass(VkSubpassDescriptionFlags flags = 0, VkPipelineBindPoint bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS);
 	void	AddSubpassColorAttachment(uint32_t subpass_index,uint32_t attachment_index);
 	void	AddSubpassDepthStencilAttachment(uint32_t subpass_index,uint32_t attachment_index);
 	void	AddSubpassInputAttachment(uint32_t subpass_index,uint32_t attachment_index,VkImageLayout layout);

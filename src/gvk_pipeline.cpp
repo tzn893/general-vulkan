@@ -351,6 +351,20 @@ namespace gvk {
 			}
 		);
 
+		//get rid of gl preserved words
+		for (auto iter = vertex_input.begin(); iter < vertex_input.end();)
+		{
+			std::string name = (*iter)->name;
+			if (name.substr(0,3) == "gl_")
+			{
+				iter = vertex_input.erase(iter);
+			}
+			else
+			{
+				iter++;
+			}
+		}
+
 		std::vector<VkVertexInputAttributeDescription> attributes(vertex_input.size());
 		uint32 total_stride = 0, current_offset = 0;
 		for (uint32 i = 0;i < vertex_input.size();i++) 
@@ -377,8 +391,16 @@ namespace gvk {
 		vertex_input_state.vertexAttributeDescriptionCount = attributes.size();
 
 		//TODO : currently we only support 1 binding
-		vertex_input_state.pVertexBindingDescriptions = &binding;
-		vertex_input_state.vertexBindingDescriptionCount = 1;
+		if (!attributes.empty())
+		{
+			vertex_input_state.pVertexBindingDescriptions = &binding;
+			vertex_input_state.vertexBindingDescriptionCount = 1;
+		}
+		else
+		{
+			vertex_input_state.pVertexAttributeDescriptions = NULL;
+			vertex_input_state.vertexBindingDescriptionCount = 0;
+		}
 
 		vk_create_info.pVertexInputState = &vertex_input_state;
 		
@@ -785,7 +807,22 @@ namespace gvk {
 		vkCmdEndRenderPass(m_CommandBuffer);
 	}
 
-	RenderPassInlineContent::RenderPassInlineContent(VkFramebuffer framebuffer,VkCommandBuffer command_buffer)
+	RenderPassInlineContent& RenderPassInlineContent::NextSubPass(std::function<void()> commands)
+	{
+		commands();
+
+		vkCmdNextSubpass(m_CommandBuffer, VK_SUBPASS_CONTENTS_INLINE);
+		return *this;
+	}
+
+	void RenderPassInlineContent::EndPass(std::function<void()> commands)
+	{
+		commands();
+
+		vkCmdEndRenderPass(m_CommandBuffer);
+	}
+
+	RenderPassInlineContent::RenderPassInlineContent(VkFramebuffer framebuffer, VkCommandBuffer command_buffer)
 		:m_Framebuffer(framebuffer),m_CommandBuffer(command_buffer) {}
 }
 

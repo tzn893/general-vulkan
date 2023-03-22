@@ -235,10 +235,10 @@ struct Mat4x4{
     operator mat4() 
     {
         mat4 m;
-        m.a00 = a00, m.a01 = a01, m.a02 = a02, m.a03 = a03;
-		m.a10 = a10, m.a11 = a11, m.a12 = a12, m.a13 = a13;
-		m.a20 = a20, m.a21 = a21, m.a22 = a22, m.a23 = a23;
-		m.a30 = a30, m.a31 = a31, m.a32 = a32, m.a33 = a33;
+        m.a00 = a00, m.a01 = a10, m.a02 = a20, m.a03 = a30;
+		m.a10 = a01, m.a11 = a11, m.a12 = a21, m.a13 = a31;
+		m.a20 = a02, m.a21 = a12, m.a22 = a22, m.a23 = a32;
+		m.a30 = a03, m.a31 = a13, m.a32 = a23, m.a33 = a33;
         return m;
     }
 
