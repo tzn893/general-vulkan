@@ -28,12 +28,73 @@ std::tuple<void*, uint32, uint32> load_image()
 	return std::make_tuple(image, (uint32)width, (uint32)height);
 }
 
+uint32 width = 600, height = 600;
+
+std::vector<ptr<gvk::Image>> color_outputs;
+std::vector<VkImageView>	 color_output_view;
+std::vector<VkFramebuffer> frame_buffers;
+std::vector<ptr<gvk::DescriptorSet>> post_desc_set;
+
+
+bool RecreateFrameBuffers(ptr<gvk::Context> ctx,ptr<gvk::RenderPass> render_pass, VkSampler sampler)
+{
+	color_outputs.resize(ctx->GetBackBufferCount());
+	color_output_view.resize(ctx->GetBackBufferCount());
+	frame_buffers.resize(ctx->GetBackBufferCount());
+
+	auto back_buffers = ctx->GetBackBuffers();
+
+	GvkImageCreateInfo color_output_info = back_buffers[0]->Info();
+	color_output_info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+		VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+
+	for (uint32 i = 0; i < back_buffers.size(); i++)
+	{
+		ptr<gvk::Image> back_buffer = back_buffers[i];
+		color_outputs[i] = ctx->CreateImage(color_output_info).value();
+		color_output_view[i] = color_outputs[i]->CreateView(gvk::GetAllAspects(color_output_info.format),
+			0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D).value();
+
+		VkImageView frame_buffer_views[] = { color_output_view[i],back_buffer->GetViews()[0] };
+
+		if (auto f = ctx->CreateFrameBuffer(render_pass, frame_buffer_views,
+			back_buffer->Info().extent.width, back_buffer->Info().extent.height); f.has_value())
+		{
+			frame_buffers[i] = f.value();
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	GvkDescriptorSetWrite desc_write;
+	for (uint32 i = 0; i < ctx->GetBackBufferCount(); i++)
+	{
+		desc_write.ImageWrite(post_desc_set[i], "i_image", sampler, color_output_view[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+	desc_write.Emit(ctx->GetDevice());
+
+	return true;
+}
+
+
+//vertex data
+TriangleVertex vertexs[] = {
+		 {{0.5f, -0.5f}, {1.0f, 0.0f}},
+		{{0.5f, 0.5f}, {1.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 1.0f}},
+		{{-0.5f, -0.5f}, {0.0f, 0.0f}},
+		{{0.5f, -0.5f}, {1.0f, 0.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 1.0f}}
+};
+
 int main() 
 {
 	VkFormat back_buffer_format;
 
 	ptr<gvk::Window> window;
-	require(gvk::Window::Create(600, 600, "triangle"), window);
+	require(gvk::Window::Create(width, height, "triangle"), window);
 
 	std::string error;
 	ptr<gvk::Context> context;
@@ -118,6 +179,7 @@ int main()
 		return 0;
 	}
 	
+	//create forward render pipeline
 	std::vector<GvkGraphicsPipelineCreateInfo::BlendState> blend_states(1, GvkGraphicsPipelineCreateInfo::BlendState());;
 	GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, render_pass_idx, blend_states.data());
 	graphic_pipeline_create.rasterization_state.cullMode = VK_CULL_MODE_NONE;
@@ -125,44 +187,20 @@ int main()
 	ptr<gvk::Pipeline> graphic_pipeline;
 	require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);
 
+	//create post process pipeline
 	GvkGraphicsPipelineCreateInfo post_process_pipeline_create(displace_vert.value(),displace_frag.value(),render_pass, post_pass_idx, blend_states.data());
 	ptr<gvk::Pipeline> post_process_pipeline = context->CreateGraphicsPipeline(post_process_pipeline_create).value();
 
-	auto back_buffers = context->GetBackBuffers();
-	std::vector<ptr<gvk::Image>> color_outputs(context->GetBackBufferCount());
-	std::vector<VkImageView>	 color_output_view(context->GetBackBufferCount());
+	VkSampler sampler;
+	require(context->CreateSampler(GvkSamplerCreateInfo(VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR)), sampler);
 
-	GvkImageCreateInfo color_output_info = back_buffers[0]->Info();
-	color_output_info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | 
-		VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-
-	std::vector<VkFramebuffer> frame_buffers(back_buffers.size());
-	for (uint32 i = 0;i < back_buffers.size();i++)
-	{
-		ptr<gvk::Image> back_buffer = back_buffers[i];
-		color_outputs[i] = context->CreateImage(color_output_info).value();
-		color_output_view[i] = color_outputs[i]->CreateView(gvk::GetAllAspects(color_output_info.format),
-			0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D).value();
-
-		VkImageView frame_buffer_views[] = { color_output_view[i],back_buffer->GetViews()[0]};
-
-		require(context->CreateFrameBuffer(render_pass, frame_buffer_views,
-			back_buffer->Info().extent.width, back_buffer->Info().extent.height), frame_buffers[i]);
-	}
-
-	TriangleVertex vertexs[] = {
-		 {{0.5f, -0.5f}, {1.0f, 0.0f}},
-		{{0.5f, 0.5f}, {1.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 1.0f}},
-		{{-0.5f, -0.5f}, {0.0f, 0.0f}},
-		{{0.5f, -0.5f}, {1.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 1.0f}}
-	};
+	//upload vertex data
 	ptr<gvk::Buffer> buffer;
 	require(context->CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, sizeof(vertexs),
 		GVK_HOST_WRITE_RANDOM), buffer);
 	buffer->Write(vertexs, 0, sizeof(vertexs));
 
+	//create command objects
 	ptr<gvk::CommandQueue> queue;
 	ptr<gvk::CommandPool>  pool;
 	std::vector<VkCommandBuffer>	cmd_buffers(back_buffer_count);
@@ -171,12 +209,14 @@ int main()
 	for(uint32 i = 0;i < back_buffer_count;i++)
 		require(pool->CreateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY), cmd_buffers[i]);
 
+	//create semaphores
 	std::vector<VkSemaphore> color_output_finish(back_buffer_count);
 	for(uint32 i = 0;i < back_buffer_count;i++)
 	{
 		require(context->CreateVkSemaphore(), color_output_finish[i]);
 	}
 
+	//get push costant ranges
 	GvkPushConstant push_constant_time, push_constant_rotation;
 	require(graphic_pipeline->GetPushConstantRange("time"), push_constant_time);
 	require(graphic_pipeline->GetPushConstantRange("rotation"), push_constant_rotation);
@@ -184,7 +224,6 @@ int main()
 	GvkPushConstant push_constant_resoltuion, push_constant_offset;
 	require(post_process_pipeline->GetPushConstantRange("p_resolution"), push_constant_resoltuion);
 	require(post_process_pipeline->GetPushConstantRange("p_offset"), push_constant_offset);
-
 
 	//load images
 	ptr<gvk::Image> image;
@@ -238,42 +277,47 @@ int main()
 		);
 	}
 
+	
+	//create descriptor sets
 	VkImageView view;
 	require(image->CreateView(VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D),view);
 
 	ptr <gvk::DescriptorSetLayout> descriptor_set_layout;
 	require(graphic_pipeline->GetInternalLayout(0, VK_SHADER_STAGE_FRAGMENT_BIT), descriptor_set_layout);
 	ptr<gvk::DescriptorAllocator> descriptor_allocator = context->CreateDescriptorAllocator();
+
+	//create forward render descriptor set 
 	ptr<gvk::DescriptorSet>	descriptor_set;
 	require(descriptor_allocator->Allocate(descriptor_set_layout), descriptor_set);
 
+	//create post procss descriptor sets
+	post_desc_set.resize(context->GetBackBufferCount());
 	ptr<gvk::DescriptorSetLayout> frag_desc_layout = post_process_pipeline->GetInternalLayout(0, VK_SHADER_STAGE_FRAGMENT_BIT).value();
-	std::vector<ptr<gvk::DescriptorSet>> post_desc_set(context->GetBackBufferCount());
 	for (uint32 i = 0; i < context->GetBackBufferCount(); i++)
 	{
 		post_desc_set[i] = descriptor_allocator->Allocate(frag_desc_layout).value();
 	}
 
-	VkSampler sampler; 
-	require(context->CreateSampler(GvkSamplerCreateInfo(VK_FILTER_LINEAR, VK_FILTER_LINEAR,VK_SAMPLER_MIPMAP_MODE_LINEAR)), sampler);
+	//recreate color buffer
+	if (!RecreateFrameBuffers(context, render_pass, sampler))
+	{
+		return false;
+	}
 
 	GvkDescriptorSetWrite desc_write;
 	desc_write.ImageWrite(descriptor_set, "my_texture", sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	for (uint32 i = 0;i < context->GetBackBufferCount(); i++)
-	{
-		desc_write.ImageWrite(post_desc_set[i], "i_image", sampler, color_output_view[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	}
 	desc_write.Emit(context->GetDevice());
+	
 
-	uint32 w = 600, h = 600;
-
-	uint32 i = 0;
+	//create fences
 	std::vector<VkFence> fence(back_buffer_count);
 	for (uint32 i = 0;i < back_buffer_count;i++) 
 	{
 		//it is handy when implementing frame in flight
 		require(context->CreateFence(VK_FENCE_CREATE_SIGNALED_BIT), fence[i]);
 	}
+
+
 	while (!window->ShouldClose()) 
 	{
 		uint32 current_frame_idx = context->CurrentFrameIndex();
@@ -292,36 +336,10 @@ int main()
 		
 		std::string error;
 		if (auto v = context->AcquireNextImageAfterResize(
-			[&](uint32 w,uint32 h)
+			[&](uint32 w, uint32 h)
 			{
-				auto back_buffers = context->GetBackBuffers();
-				//recreate all the framebuffers
-				GvkDescriptorSetWrite desc_write;
-
-				for (uint32 i = 0; i < back_buffers.size(); i++)
-				{
-					ptr<gvk::Image> back_buffer = back_buffers[i];
-					color_outputs[i] = context->CreateImage(color_output_info).value();
-					color_output_view[i] = color_outputs[i]->CreateView(gvk::GetAllAspects(color_output_info.format),
-						0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D).value();
-
-					desc_write.ImageWrite(post_desc_set[i], "i_image", sampler, color_output_view[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-					VkImageView frame_buffer_views[] = { color_output_view[i],back_buffer->GetViews()[0] };
-
-					if (auto f = context->CreateFrameBuffer(render_pass, frame_buffer_views,
-						back_buffer->Info().extent.width, back_buffer->Info().extent.height);f.has_value())
-					{
-						frame_buffers[i] = f.value();
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				desc_write.Emit(context->GetDevice());
-				return true;
+				width = w, height = h;
+				return RecreateFrameBuffers(context, render_pass, sampler);
 			}
 		,&error))
 		{
@@ -402,7 +420,7 @@ int main()
 			float offset = 10.0f;
 			push_constant_offset.Update(cmd_buffer, &offset);
 
-			vec2 resolution = { (float)w, (float)h };
+			vec2 resolution = { (float)width, (float)height };
 			push_constant_resoltuion.Update(cmd_buffer, &resolution);
 
 			vkCmdDraw(cmd_buffer, 6, 1, 0, 0);
