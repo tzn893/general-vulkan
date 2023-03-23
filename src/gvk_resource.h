@@ -3,12 +3,15 @@
 #include "gvk_common.h"
 #include <unordered_map>
 
-enum GVK_HOST_WRITE_PROPERTY {
+enum GVK_HOST_WRITE_PROPERTY 
+{
 	GVK_HOST_WRITE_NONE,
 	GVK_HOST_WRITE_SEQUENTIAL,
 	GVK_HOST_WRITE_RANDOM
 };
 
+//handy while create image views
+#define GVK_IMAGE_ASPECT_MASK_ALL 0 
 
 //It seems that the image sharing mode and queue family indices cloud be ignored
 struct GvkImageCreateInfo {

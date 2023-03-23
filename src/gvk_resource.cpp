@@ -159,6 +159,12 @@ namespace gvk {
 	opt<VkImageView> Image::CreateView(VkImageAspectFlags aspectMask, uint32_t baseMipLevel, uint32_t levelCount, 
 		uint32_t baseArrayLayer, uint32_t layerCount,VkImageViewType type)
 	{
+
+		if(aspectMask == 0)
+		{
+			aspectMask = GetAllAspects(m_Info.format);
+		}
+
 		VkImageAspectFlags flags = GetAllAspects(m_Info.format);
 		if ((flags & aspectMask) != aspectMask) 
 		{

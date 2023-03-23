@@ -280,7 +280,7 @@ int main()
 	
 	//create descriptor sets
 	VkImageView view;
-	require(image->CreateView(VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D),view);
+	require(image->CreateView(GVK_IMAGE_ASPECT_MASK_ALL, 0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D),view);
 
 	ptr <gvk::DescriptorSetLayout> descriptor_set_layout;
 	require(graphic_pipeline->GetInternalLayout(0, VK_SHADER_STAGE_FRAGMENT_BIT), descriptor_set_layout);
