@@ -72,7 +72,6 @@ struct GvkDescriptorLayoutHint
 {
 	void AddDescriptorSetLayout(const gvk::ptr<gvk::DescriptorSetLayout>& layout);
 	std::vector<gvk::ptr<gvk::DescriptorSetLayout>> precluded_descriptor_layouts;
-
 };
 
 struct GvkGraphicsPipelineCreateInfo {
@@ -335,4 +334,22 @@ struct GvkDescriptorSetWrite
 	GvkDescriptorSetWrite& BufferWrite(gvk::ptr<gvk::DescriptorSet> set,const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t array_index = 0);
 
 	void				   Emit(VkDevice device);
+};
+
+//TODO currently we don't support dynamic offset
+//we assume count of descriptor set wouldn't greater than 16
+struct GvkDescriptorSetBindingUpdate
+{
+	GvkDescriptorSetBindingUpdate(VkCommandBuffer cmd_buffer, VkPipelineBindPoint bind_point,gvk::ptr<gvk::Pipeline> pipeline);
+
+	GvkDescriptorSetBindingUpdate& BindDescriptorSet(gvk::ptr<gvk::DescriptorSet> set);
+
+	void Update();
+
+	gvk::uint32 descriptor_set_count;
+
+	std::array<gvk::ptr<gvk::DescriptorSet>,16>  target_sets;
+	VkPipelineLayout layout;
+	VkPipelineBindPoint bind_point;
+	VkCommandBuffer cmd_buffer;
 };

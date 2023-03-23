@@ -1181,3 +1181,68 @@ void GvkPushConstant::Update(VkCommandBuffer cmd_buffer,const void* data)
 GvkPushConstant::GvkPushConstant(VkPushConstantRange range, VkPipelineLayout layout)
 :range(range),layout(layout) {}
 
+
+GvkDescriptorSetBindingUpdate::GvkDescriptorSetBindingUpdate(VkCommandBuffer cmd_buffer, VkPipelineBindPoint bind_point, gvk::ptr<gvk::Pipeline> pipeline)
+{
+	descriptor_set_count = 0;
+
+	this->cmd_buffer = cmd_buffer;
+	this->bind_point = bind_point;
+	this->layout = pipeline->GetPipelineLayout();
+}
+
+GvkDescriptorSetBindingUpdate& GvkDescriptorSetBindingUpdate::BindDescriptorSet(gvk::ptr<gvk::DescriptorSet> set)
+{
+	target_sets[descriptor_set_count++] = set;
+	return *this;
+}
+
+void GvkDescriptorSetBindingUpdate::Update()
+{
+	//target descriptor sets should not be empty!
+	gvk_assert(descriptor_set_count != 0);
+
+	if (descriptor_set_count == 1)
+	{
+		VkDescriptorSet set = target_sets[0]->GetDescriptorSet();
+		vkCmdBindDescriptorSets(cmd_buffer, bind_point, layout, target_sets[0]->GetSetIndex(),
+			descriptor_set_count, &set, 0, NULL);
+		return;
+	}
+
+	std::sort(target_sets.begin(), target_sets.begin() + descriptor_set_count,
+		[&](const gvk::ptr<gvk::DescriptorSet>& lhs, const gvk::ptr<gvk::DescriptorSet>& rhs)
+		{
+			return lhs->GetDescriptorSet() < rhs->GetDescriptorSet();
+		}
+	);
+
+	std::array<VkDescriptorSet, 16> sets;
+	
+	sets[0] = target_sets[0]->GetDescriptorSet();
+	uint32	batch_set_cnt = 1;
+	uint32	batch_last_set_idx = target_sets[0]->GetSetIndex();
+	uint32	batch_first_set_idx = target_sets[0]->GetSetIndex();
+	
+	for (uint32 i = 1; i < descriptor_set_count; i++)
+	{
+		ptr<gvk::DescriptorSet> curr_set = target_sets[i];
+		if (curr_set->GetSetIndex() != batch_last_set_idx + 1)
+		{
+			vkCmdBindDescriptorSets(cmd_buffer, bind_point, layout, batch_first_set_idx,
+				batch_set_cnt, sets.data(), 0, NULL);
+
+			batch_set_cnt = 1;
+			batch_first_set_idx = curr_set->GetSetIndex();
+			batch_last_set_idx = curr_set->GetSetIndex();
+			sets[0] = curr_set->GetDescriptorSet();
+		}
+		else
+		{
+			batch_last_set_idx = curr_set->GetSetIndex();
+			sets[batch_set_cnt++] = curr_set->GetDescriptorSet();
+		}
+	}
+	vkCmdBindDescriptorSets(cmd_buffer, bind_point, layout, batch_first_set_idx,
+		batch_set_cnt, sets.data(), 0, NULL);
+}

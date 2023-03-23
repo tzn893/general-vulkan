@@ -381,15 +381,15 @@ int main()
 
 		render_pass->Begin(frame_buffers[image_index],
 			&cv,
-			{ {},VkExtent2D{ back_buffer->Info().extent.width,back_buffer->Info().extent.height} }, 
+			{ {},VkExtent2D{ back_buffer->Info().extent.width,back_buffer->Info().extent.height} },
 			viewport,
 			scissor,
 			cmd_buffer
 		).NextSubPass(
 			[&]() {
-			VkDescriptorSet descriptor_sets[] = { descriptor_set->GetDescriptorSet() };
-			vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipelineLayout(),
-				0, gvk_count_of(descriptor_sets), descriptor_sets, 0, NULL);
+			GvkDescriptorSetBindingUpdate(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline)
+			.BindDescriptorSet(descriptor_set)
+			.Update();
 
 			float time = current_time();
 			push_constant_time.Update(cmd_buffer, &time);
@@ -408,23 +408,23 @@ int main()
 			vkCmdDraw(cmd_buffer, gvk_count_of(vertexs), 1, 0, 0);
 			}
 		)
-			.EndPass(
-				[&]()
-				{
-					vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, post_process_pipeline->GetPipeline());
+		.EndPass(
+			[&]()
+			{
+				vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, post_process_pipeline->GetPipeline());
 
-			VkDescriptorSet descriptor_sets[] = { post_desc_set[image_index]->GetDescriptorSet() };
-			vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, post_process_pipeline->GetPipelineLayout(),
-				0, gvk_count_of(descriptor_sets), descriptor_sets, 0, NULL);
+				GvkDescriptorSetBindingUpdate(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, post_process_pipeline)
+				.BindDescriptorSet(post_desc_set[image_index])
+				.Update();
 
-			float offset = 10.0f;
-			push_constant_offset.Update(cmd_buffer, &offset);
+				float offset = 10.0f;
+				push_constant_offset.Update(cmd_buffer, &offset);
 
-			vec2 resolution = { (float)width, (float)height };
-			push_constant_resoltuion.Update(cmd_buffer, &resolution);
+				vec2 resolution = { (float)width, (float)height };
+				push_constant_resoltuion.Update(cmd_buffer, &resolution);
 
-			vkCmdDraw(cmd_buffer, 6, 1, 0, 0);
-				}
+				vkCmdDraw(cmd_buffer, 6, 1, 0, 0);
+			}
 		);
 
 		vkEndCommandBuffer(cmd_buffer);
