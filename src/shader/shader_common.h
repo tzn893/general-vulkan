@@ -69,7 +69,15 @@ struct mat3x2
 
 #define PUSH_CONSTANT_END(PC) };
 
+#define UNIFORM_BUFFER(UB, b, s) struct UB {
+
+#define UNIFORM_BUFFER_END(UB) };
+
 #else
+
+#define UNIFORM_BUFFER(UB, b, s) layout(binding = b,set = s) uniform UB {
+
+#define	UNIFORM_BUFFER_END(UB) };
 
 #define PUSH_CONSTANT(PC) layout(push_constant) uniform PC {
 
