@@ -641,6 +641,11 @@ namespace gvk {
 		return m_PipelineLayout;
 	}
 
+	VkPipelineBindPoint Pipeline::GetPipelineBindPoint()
+	{
+		return m_BindPoint;
+	}
+
 	opt<GvkPushConstant> Pipeline::GetPushConstantRange(const char* name)
 	{
 		if (auto res = m_PushConstants.find(name); res != m_PushConstants.end()) 
@@ -1182,12 +1187,12 @@ GvkPushConstant::GvkPushConstant(VkPushConstantRange range, VkPipelineLayout lay
 :range(range),layout(layout) {}
 
 
-GvkDescriptorSetBindingUpdate::GvkDescriptorSetBindingUpdate(VkCommandBuffer cmd_buffer, VkPipelineBindPoint bind_point, gvk::ptr<gvk::Pipeline> pipeline)
+GvkDescriptorSetBindingUpdate::GvkDescriptorSetBindingUpdate(VkCommandBuffer cmd_buffer, gvk::ptr<gvk::Pipeline> pipeline)
 {
 	descriptor_set_count = 0;
 
 	this->cmd_buffer = cmd_buffer;
-	this->bind_point = bind_point;
+	this->bind_point = pipeline->GetPipelineBindPoint();
 	this->layout = pipeline->GetPipelineLayout();
 }
 

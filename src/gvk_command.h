@@ -1,6 +1,11 @@
 #pragma once
 #include "gvk_common.h"
+#include "gvk_pipeline.h"
+#include "gvk_resource.h"
 #include <functional>
+
+
+
 
 namespace gvk {
 	// We don't hide command pool from user because importance of command pool in multi-threading
@@ -33,7 +38,6 @@ namespace gvk {
 		VkDevice      m_Device;
 	};
 
-
 	class SemaphoreInfo {
 	private:
 		friend class CommandQueue;
@@ -52,8 +56,6 @@ namespace gvk {
 			return *this;
 		}
 	};
-
-
 
 	class CommandQueue {
 		friend class Context;
@@ -104,7 +106,29 @@ namespace gvk {
 		float	m_Priority;
 
 		Context* m_Context;
-	};
-	
-	
+	};	
 }
+
+
+void GvkBindPipeline(VkCommandBuffer cmd, gvk::ptr<gvk::Pipeline> pipeline);
+
+struct GvkBindVertexIndexBuffers
+{
+	GvkBindVertexIndexBuffers(VkCommandBuffer cmd);
+
+	GvkBindVertexIndexBuffers& BindVertex(gvk::ptr<gvk::Buffer> vertex,uint32_t  bind,VkDeviceSize offset = 0);
+
+	GvkBindVertexIndexBuffers& BindIndex(gvk::ptr<gvk::Buffer> index,VkIndexType type,VkDeviceSize offset = 0);
+
+	void Emit();
+private:
+	VkBuffer idx;
+	uint32_t idx_offset;
+	VkIndexType idx_type;
+
+	std::array<VkBuffer, 8> verts{NULL};
+	std::array<VkDeviceSize, 8> offsets{0};
+	uint32_t bind_start;
+
+	VkCommandBuffer cmd;
+};

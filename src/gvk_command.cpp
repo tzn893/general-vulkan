@@ -219,3 +219,63 @@ namespace gvk {
 	{}
 
 }
+
+void GvkBindPipeline(VkCommandBuffer cmd, gvk::ptr<gvk::Pipeline> pipeline)
+{
+	vkCmdBindPipeline(cmd, pipeline->GetPipelineBindPoint(), pipeline->GetPipeline());
+}
+
+GvkBindVertexIndexBuffers::GvkBindVertexIndexBuffers(VkCommandBuffer cmd)
+{
+	this->cmd = cmd;
+	bind_start = verts.size();
+	idx = NULL;
+
+	
+}
+
+GvkBindVertexIndexBuffers& GvkBindVertexIndexBuffers::BindVertex(gvk::ptr<gvk::Buffer> vertex, uint32_t bind, VkDeviceSize offset /*= 0*/)
+{
+	gvk_assert(bind < 8);
+
+	verts[bind] = vertex->GetBuffer();
+	offsets[bind] = offset;
+	
+	if (bind_start > bind) bind_start = bind;
+	return *this;
+}
+
+GvkBindVertexIndexBuffers& GvkBindVertexIndexBuffers::BindIndex(gvk::ptr<gvk::Buffer> index, VkIndexType type, VkDeviceSize offset /*= 0*/)
+{
+	idx = index->GetBuffer();
+	idx_offset = offset;
+	idx_type = type;
+	return *this;
+}
+
+void GvkBindVertexIndexBuffers::Emit()
+{
+	if (idx != NULL)
+	{
+		vkCmdBindIndexBuffer(cmd, idx, idx_offset, idx_type);
+	}
+
+	uint32_t last_bind_start = bind_start;
+	for (uint32_t i = last_bind_start;i < 8;i++)
+	{
+		if (verts[i] == NULL)
+		{
+			if (last_bind_start != i)
+			{
+				vkCmdBindVertexBuffers(cmd, last_bind_start, i - last_bind_start, verts.data() + last_bind_start,
+					offsets.data() + last_bind_start);
+			}
+			last_bind_start = i + 1;
+		}
+	}
+	if (last_bind_start != 8)
+	{
+		vkCmdBindVertexBuffers(cmd, last_bind_start, 8 - last_bind_start, verts.data() + last_bind_start,
+			offsets.data() + last_bind_start);
+	}
+}

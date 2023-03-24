@@ -361,7 +361,6 @@ int main()
 
 		//body of recording commands
 		
-		vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipeline());
 
 		VkClearValue cv;
 		cv.color = VkClearColorValue{ {0.1f,0.1f,0.5f,1.0f} };
@@ -387,7 +386,9 @@ int main()
 			cmd_buffer
 		).NextSubPass(
 			[&]() {
-			GvkDescriptorSetBindingUpdate(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline)
+			GvkBindPipeline(cmd_buffer, graphic_pipeline);
+
+			GvkDescriptorSetBindingUpdate(cmd_buffer, graphic_pipeline)
 			.BindDescriptorSet(descriptor_set)
 			.Update();
 
@@ -401,19 +402,19 @@ int main()
 			push_constant_rotation.Update(cmd_buffer, &rotation_mat);
 
 
-			VkBuffer vbuffers[] = { buffer->GetBuffer() };
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(cmd_buffer, 0, 1, vbuffers, offsets);
-
+			GvkBindVertexIndexBuffers(cmd_buffer)
+				.BindVertex(buffer, 0, 0)
+				.Emit();
+			
 			vkCmdDraw(cmd_buffer, gvk_count_of(vertexs), 1, 0, 0);
 			}
 		)
-		.EndPass(
+			.EndPass(
 			[&]()
 			{
-				vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, post_process_pipeline->GetPipeline());
+				GvkBindPipeline(cmd_buffer, post_process_pipeline);
 
-				GvkDescriptorSetBindingUpdate(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, post_process_pipeline)
+				GvkDescriptorSetBindingUpdate(cmd_buffer, post_process_pipeline)
 				.BindDescriptorSet(post_desc_set[image_index])
 				.Update();
 

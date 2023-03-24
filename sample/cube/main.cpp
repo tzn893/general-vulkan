@@ -339,8 +339,6 @@ int main()
 		}
 
 		//body of recording commands
-		
-		vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipeline());
 
 		VkClearValue cv[2];
 		cv[0].color = VkClearColorValue{{0.1f,0.1f,0.5f,1.0f}};
@@ -362,14 +360,18 @@ int main()
 
 		render_pass->Begin(frame_buffers[image_index],
 			cv,
-			{ {},VkExtent2D{ back_buffer->Info().extent.width,back_buffer->Info().extent.height} }, 
+			{ {},VkExtent2D{ back_buffer->Info().extent.width,back_buffer->Info().extent.height} },
 			viewport,
 			scissor,
 			cmd_buffer
 		).Record([&]() {
-			VkDescriptorSet descriptor_sets[] = { descriptor_set->GetDescriptorSet() };
-			vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphic_pipeline->GetPipelineLayout(),
-				0, gvk_count_of(descriptor_sets), descriptor_sets, 0, NULL);
+
+			GvkBindPipeline(cmd_buffer, graphic_pipeline);
+
+			GvkDescriptorSetBindingUpdate(cmd_buffer, graphic_pipeline)
+			.BindDescriptorSet(descriptor_set)
+			.Update();
+
 
 			float time = current_time();
 
@@ -381,10 +383,9 @@ int main()
 			push_constant_proj.Update(cmd_buffer, &mat4(proj));
 			push_constant_model.Update(cmd_buffer, &mat4(model));
 
-
-			VkBuffer vbuffers[] = { buffer->GetBuffer() };
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(cmd_buffer, 0, 1, vbuffers, offsets);
+			GvkBindVertexIndexBuffers(cmd_buffer)
+			.BindVertex(buffer, 0, 0)
+			.Emit();
 
 			vkCmdDraw(cmd_buffer, gvk_count_of(vertexs), 1, 0, 0);
 			}

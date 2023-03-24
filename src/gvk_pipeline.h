@@ -278,6 +278,8 @@ namespace gvk{
 		VkPipeline								GetPipeline();
 		VkPipelineLayout						GetPipelineLayout();
 
+		VkPipelineBindPoint						GetPipelineBindPoint();
+
 		opt<GvkPushConstant>					GetPushConstantRange(const char* name);
 
 
@@ -340,7 +342,7 @@ struct GvkDescriptorSetWrite
 //we assume count of descriptor set wouldn't greater than 16
 struct GvkDescriptorSetBindingUpdate
 {
-	GvkDescriptorSetBindingUpdate(VkCommandBuffer cmd_buffer, VkPipelineBindPoint bind_point,gvk::ptr<gvk::Pipeline> pipeline);
+	GvkDescriptorSetBindingUpdate(VkCommandBuffer cmd_buffer, gvk::ptr<gvk::Pipeline> pipeline);
 
 	GvkDescriptorSetBindingUpdate& BindDescriptorSet(gvk::ptr<gvk::DescriptorSet> set);
 
