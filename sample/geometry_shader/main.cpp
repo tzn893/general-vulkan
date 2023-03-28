@@ -90,7 +90,6 @@ int main()
 	graphic_pipeline_create.geometry_shader = geom.value();
 	//Unfortunately glsl reflect can't access primitive topology so we have to set it manually
 	graphic_pipeline_create.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-	graphic_pipeline_create.rasterization_state.cullMode = VK_CULL_MODE_NONE;
 
 	ptr<gvk::Pipeline> graphic_pipeline;
 	require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);

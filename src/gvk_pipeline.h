@@ -150,7 +150,7 @@ struct GvkGraphicsPipelineCreateInfo {
 	/// <param name="subpass_index">the index of subpass in render pass of graphics pipeline</param>
 	/// <param name="blend_states">pointer to array of blend states of graphics pipeline,the array size must equal to count of output of fragment shader</param>
 	GvkGraphicsPipelineCreateInfo(gvk::ptr<gvk::Shader> vert, gvk::ptr<gvk::Shader> frag, gvk::ptr<gvk::RenderPass> render_pass,
-		uint32_t subpass_index, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states);
+		uint32_t subpass_index, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states = NULL);
 
 	GvkDescriptorLayoutHint descriptor_layuot_hint;
 

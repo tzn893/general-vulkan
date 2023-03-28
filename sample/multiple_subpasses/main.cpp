@@ -180,15 +180,14 @@ int main()
 	}
 	
 	//create forward render pipeline
-	std::vector<GvkGraphicsPipelineCreateInfo::BlendState> blend_states(1, GvkGraphicsPipelineCreateInfo::BlendState());;
-	GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, render_pass_idx, blend_states.data());
+	GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, render_pass_idx);
 	graphic_pipeline_create.rasterization_state.cullMode = VK_CULL_MODE_NONE;
 
 	ptr<gvk::Pipeline> graphic_pipeline;
 	require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);
 
 	//create post process pipeline
-	GvkGraphicsPipelineCreateInfo post_process_pipeline_create(displace_vert.value(),displace_frag.value(),render_pass, post_pass_idx, blend_states.data());
+	GvkGraphicsPipelineCreateInfo post_process_pipeline_create(displace_vert.value(),displace_frag.value(),render_pass, post_pass_idx);
 	ptr<gvk::Pipeline> post_process_pipeline = context->CreateGraphicsPipeline(post_process_pipeline_create).value();
 
 	VkSampler sampler;

@@ -106,13 +106,9 @@ int main()
 		return 0;
 	}
 	
-	
-
-	std::vector<GvkGraphicsPipelineCreateInfo::BlendState> blend_states(1, GvkGraphicsPipelineCreateInfo::BlendState());;
-	GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, 0, blend_states.data());
+	GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, 0);
 	graphic_pipeline_create.rasterization_state.cullMode = VK_CULL_MODE_NONE;
 	graphic_pipeline_create.depth_stencil_state.enable_depth_stencil = true;
-	
 
 	ptr<gvk::Pipeline> graphic_pipeline;
 	require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);

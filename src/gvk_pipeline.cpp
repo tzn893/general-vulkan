@@ -963,6 +963,14 @@ GvkGraphicsPipelineCreateInfo::GvkGraphicsPipelineCreateInfo(ptr<gvk::Shader> ve
 {	
 	uint32 fragment_output_count = frag->GetOutputVariableCount();
 	frame_buffer_blend_state.Resize(fragment_output_count);
+
+	if (blend_states == NULL)
+	{
+		static std::vector<GvkGraphicsPipelineCreateInfo::BlendState> s_blend_states;
+		s_blend_states.resize(fragment_output_count, GvkGraphicsPipelineCreateInfo::BlendState());
+		blend_states = s_blend_states.data();
+	}
+
 	for (uint32 i = 0;i < fragment_output_count;i++)
 	{
 		frame_buffer_blend_state.Set(i, blend_states[i]);
