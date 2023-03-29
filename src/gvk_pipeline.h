@@ -252,11 +252,21 @@ namespace gvk{
 	{
 		friend class DescriptorAllocator;
 	public:
-
-		VkDescriptorSet GetDescriptorSet();
+		/// <summary>
+		/// Get native vulkan descriptor set
+		/// </summary>
+		/// <returns>vulkan descriptor set</returns>
+		VkDescriptorSet		GetDescriptorSet();
+		
+		/// <summary>
+		/// Get index of descriptor set
+		/// </summary>
+		/// <returns></returns>
 		uint32_t			GetSetIndex();
 
 		opt<SpvReflectDescriptorBinding*> FindBinding(const char* name);
+
+		void SetDebugName(const std::string& name);
 
 		~DescriptorSet();
 
@@ -281,6 +291,8 @@ namespace gvk{
 		VkPipelineBindPoint						GetPipelineBindPoint();
 
 		opt<GvkPushConstant>					GetPushConstantRange(const char* name);
+
+		void									SetDebugName(const std::string& name);
 
 
 		~Pipeline();

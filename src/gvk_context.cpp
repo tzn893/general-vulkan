@@ -1,6 +1,8 @@
 #include "gvk_context.h"
 using namespace gvk;
 
+GvkExtensionFunctionManager g_ExtFunctionManager;
+
 struct GvkExpectStrEqualTo {
 	GvkExpectStrEqualTo(const char* lhs) {
 		this->lhs = lhs;
@@ -12,7 +14,6 @@ struct GvkExpectStrEqualTo {
 
 	const char* lhs;
 };
-
 
 static inline void AddNotRepeatedElement(std::vector<const char*>& target, const char* name) {
 	if (std::find_if(target.begin(), target.end(), GvkExpectStrEqualTo(name)) == target.end()) {
@@ -81,7 +82,8 @@ namespace gvk {
 	}
 
 	static std::vector<const char*> target_extensions[GVK_INSTANCE_EXTENSION_COUNT] = {
-			{VK_EXT_DEBUG_UTILS_EXTENSION_NAME},//GVK_INSTANCE_EXTENSION_DEBUG
+			{VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_EXTENSION_NAME},
+			//GVK_INSTANCE_EXTENSION_DEBUG
 	};
 
 	static const char* layer_name_table[GVK_LAYER_COUNT] = {
@@ -299,7 +301,7 @@ namespace gvk {
 	
 
 	//this function should not be called more than once
-	bool Context::InitializeDevice(const GvkDeviceCreateInfo& create, std::string * error) {
+	bool Context::InitializeDevice(const GvkDeviceCreateInfo& create, std::string* error) {
 		gvk_assert(m_Device == NULL);
 		gvk_assert(m_VkInstance != NULL);
 
@@ -318,11 +320,11 @@ namespace gvk {
 
 		//record physical device's score,pick the device with highest score
 		uint32 curr_device_score = 0;
-		
+
 		//currently chosen device's queue create info
 		std::vector<VkDeviceQueueCreateInfo> curr_queue_create;
-		
-		for (auto phy_device : phy_devices) 
+
+		for (auto phy_device : phy_devices)
 		{
 			PhysicalDevicePropertiesAndFeatures device_prop_feat;
 
@@ -332,7 +334,7 @@ namespace gvk {
 			if (ray_tracing_enabled) {
 				device_prop_feat.RequireRayTracing();
 			}
-			
+
 			device_prop_feat.Initialize(phy_device);
 			//we only create device from discrete gpu
 			if (device_prop_feat.DeviceProperties().deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
@@ -356,7 +358,7 @@ namespace gvk {
 			const VkBool32* required_feature = (const VkBool32*)&create.required_features;
 			const VkBool32* device_feature = (const VkBool32*)&device_prop_feat.DeviceFeatures();
 			constexpr uint32 device_feature_count = sizeof(create.required_features) / sizeof(VkBool32);
-			for (uint32 i = 0;i < device_feature_count;i++) 
+			for (uint32 i = 0; i < device_feature_count; i++)
 			{
 				//a required feature is not supported by device 
 				if (*(required_feature + i) && !*(device_feature + i))
@@ -365,16 +367,16 @@ namespace gvk {
 					continue;
 				}
 			}
-			
+
 			//try to create command queues
 			auto queue_family_props = device_prop_feat.QueueFamilyProperties();
-			std::vector<uint32> required_queue_count_every_family(queue_family_props.size(),0);
+			std::vector<uint32> required_queue_count_every_family(queue_family_props.size(), 0);
 			bool queue_req_satisfied = false;
 			for (auto& req : create.required_queues) {
 				queue_req_satisfied = false;
 				for (uint32 i = 0; i < queue_family_props.size(); i++) {
 					if ((queue_family_props[i].props.queueFlags & req.flags) == req.flags) {
-						uint32 new_requirement =  required_queue_count_every_family[i] + req.count;
+						uint32 new_requirement = required_queue_count_every_family[i] + req.count;
 						//the queue count of this queue family satisfies this requirement
 						if (new_requirement <= queue_family_props[i].props.queueCount) {
 							queue_req_satisfied = true;
@@ -502,7 +504,11 @@ namespace gvk {
 			}
 		}
 #endif
-
+		//load extension functions 
+		for (auto ext : create.required_extensions)
+		{
+			g_ExtFunctionManager.LoadExtension(ext, m_Device);
+		}
 
 		//initialize memory allocation
 		m_Allocator = NULL;
@@ -782,7 +788,6 @@ namespace gvk {
 		}
 
 		VkSwapchainKHR old_swap_chain = m_SwapChain;
-
 		
 		m_SwapChainCreateInfo.oldSwapchain = old_swap_chain;
 		m_SwapChainCreateInfo.imageExtent = swap_chain_ext;
@@ -934,6 +939,48 @@ namespace gvk {
 	}
 }
 
+void GvkExtensionFunctionManager::LoadExtension(const char* name, VkDevice device)
+{
+	if(strcmp(name, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0)
+	{
+		p_vkDebugMarkerSetObjectTagEXT = (PFN_vkDebugMarkerSetObjectTagEXT)vkGetDeviceProcAddr(device, "vkDebugMarkerSetObjectTagEXT");
+		p_vkDebugMarkerSetObjectNameEXT = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(device, "vkDebugMarkerSetObjectNameEXT");
+		p_vkCmdDebugMarkerBeginEXT = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerBeginEXT");
+		p_vkCmdDebugMarkerEndEXT = (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerEndEXT");
+		p_vkCmdDebugMarkerInsertEXT = (PFN_vkCmdDebugMarkerInsertEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerInsertEXT");
+	}
+}
+
+void GvkExtensionFunctionManager::vkDebugMarkerSetObjectTagEXT(VkDevice device, const VkDebugMarkerObjectTagInfoEXT* pTagInfo)
+{
+	gvk_assert(g_ExtFunctionManager.p_vkDebugMarkerSetObjectTagEXT != NULL);
+	g_ExtFunctionManager.p_vkDebugMarkerSetObjectTagEXT(device, pTagInfo);
+}
+
+void GvkExtensionFunctionManager::vkDebugMarkerSetObjectNameEXT(VkDevice device, const VkDebugMarkerObjectNameInfoEXT* pNameInfo)
+{
+	gvk_assert(g_ExtFunctionManager.p_vkDebugMarkerSetObjectNameEXT != NULL);
+	g_ExtFunctionManager.p_vkDebugMarkerSetObjectNameEXT(device, pNameInfo);
+}
+
+void GvkExtensionFunctionManager::vkCmdDebugMarkerBeginEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo)
+{
+	gvk_assert(g_ExtFunctionManager.p_vkCmdDebugMarkerBeginEXT != NULL);
+	g_ExtFunctionManager.p_vkCmdDebugMarkerBeginEXT(commandBuffer, pMarkerInfo);
+}
+
+void GvkExtensionFunctionManager::vkCmdDebugMarkerEndEXT(VkCommandBuffer commandBuffer)
+{
+	gvk_assert(g_ExtFunctionManager.p_vkCmdDebugMarkerEndEXT != NULL);
+	g_ExtFunctionManager.p_vkCmdDebugMarkerEndEXT(commandBuffer);
+}
+
+void GvkExtensionFunctionManager::vkCmdDebugMarkerInsertEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo)
+{
+	gvk_assert(g_ExtFunctionManager.p_vkCmdDebugMarkerInsertEXT != NULL);
+	g_ExtFunctionManager.p_vkCmdDebugMarkerInsertEXT(commandBuffer, pMarkerInfo);
+}
+
 GvkDeviceCreateInfo& GvkDeviceCreateInfo::RequireQueue(VkFlags queue_flags, uint32 count, float priority /*= 1.0f*/)
 {
 	required_queues.push_back({ queue_flags,count,priority });
@@ -943,6 +990,9 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::RequireQueue(VkFlags queue_flags, uint
 GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSION extension)
 {
 	switch (extension) {
+	case GVK_DEVICE_EXTENSION_DEBUG_MARKER:
+		AddNotRepeatedElement(required_extensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+		break;
 	case GVK_DEVICE_EXTENSION_RAYTRACING: 
 		AddNotRepeatedElement(required_extensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 		AddNotRepeatedElement(required_extensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);

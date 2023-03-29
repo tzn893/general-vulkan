@@ -4,9 +4,6 @@
 #include "gvk_resource.h"
 #include <functional>
 
-
-
-
 namespace gvk {
 	// We don't hide command pool from user because importance of command pool in multi-threading
 	class CommandPool {
@@ -26,6 +23,8 @@ namespace gvk {
 		/// <param name="level">The level of the command buffer</param>
 		/// <returns>The created command buffer</returns>
 		opt<VkCommandBuffer>  CreateCommandBuffer(VkCommandBufferLevel level);
+
+		void	SetDebugName(const std::string& name);
 
 		~CommandPool();
 	private:
@@ -89,6 +88,8 @@ namespace gvk {
 		/// <returns>VkResult of the operation</returns>
 		VkResult SubmitTemporalCommand(std::function<void(VkCommandBuffer)> command,
 			const SemaphoreInfo& info, VkFence target_fence,bool stall_for_host);
+
+		void	SetDebugName(const std::string& name);
 		
 		~CommandQueue();
 	private:
@@ -109,7 +110,6 @@ namespace gvk {
 	};	
 }
 
-
 void GvkBindPipeline(VkCommandBuffer cmd, gvk::ptr<gvk::Pipeline> pipeline);
 
 struct GvkBindVertexIndexBuffers
@@ -129,6 +129,21 @@ private:
 	std::array<VkBuffer, 8> verts{NULL};
 	std::array<VkDeviceSize, 8> offsets{0};
 	uint32_t bind_start;
+
+	VkCommandBuffer cmd;
+};
+
+struct GvkDebugMarker
+{
+	GvkDebugMarker(VkCommandBuffer cmd,const char* name);
+
+	GvkDebugMarker(VkCommandBuffer cmd, const char* name,const float* color);
+
+	void End();
+
+	~GvkDebugMarker();
+private:
+	VkDebugMarkerMarkerInfoEXT InitInfo(const float* color,const char* name);
 
 	VkCommandBuffer cmd;
 };

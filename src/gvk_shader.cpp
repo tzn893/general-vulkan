@@ -15,20 +15,8 @@ gvk::opt<int32_t> LauchProcess(const char* process,const char* options) {
 	gvk_zero_mem(si);
 	gvk_zero_mem(pi);
 
-	if (! CreateProcessA(
-		NULL,   //  ָ��һ��NULL��β�ġ�����ָ����ִ��ģ��Ŀ��ֽ��ַ���  
-		buffer, // �������ַ���  
-		NULL, //    ָ��һ��SECURITY_ATTRIBUTES�ṹ�壬����ṹ������Ƿ񷵻صľ�����Ա��ӽ��̼̳С�  
-		NULL, //    ���lpProcessAttributes����Ϊ�գ�NULL������ô������ܱ��̳С�<ͬ��>  
-		false,//    ָʾ�½����Ƿ�ӵ��ý��̴��̳��˾����   
-		0,  //  ָ�����ӵġ���������������ͽ��̵Ĵ����ı�  
-		//  CREATE_NEW_CONSOLE  �¿���̨���ӽ���  
-		//  CREATE_SUSPENDED    �ӽ��̴��������ֱ������ResumeThread����  
-		NULL, //    ָ��һ���½��̵Ļ����顣����˲���Ϊ�գ��½���ʹ�õ��ý��̵Ļ���  
-		NULL, //    ָ���ӽ��̵Ĺ���·��  
-		&si, // �����½��̵������������ʾ��STARTUPINFO�ṹ��  
-		&pi  // �����½��̵�ʶ����Ϣ��PROCESS_INFORMATION�ṹ��  
-	)) {
+	if (!CreateProcessA(NULL,buffer,NULL,NULL,false,0,NULL,NULL,&si, &pi)) 
+	{
 		printf("fail to create process glslc\n");
 		return std::nullopt;
 	}
@@ -184,10 +172,12 @@ namespace gvk {
 		std::string file = _file;
 		file += ".spv";
 		std::string path;
-		if (auto v = SearchUnderPathes(file.c_str(), search_pathes, search_path_count); v.has_value()) {
+		if (auto v = SearchUnderPathes(file.c_str(), search_pathes, search_path_count); v.has_value()) 
+		{
 			path = v.value().string();
 		}
-		else {
+		else 
+		{
 			*error = "gvk : fail to load file " + file;
 			return std::nullopt;
 		}
@@ -196,9 +186,11 @@ namespace gvk {
 	}
 
 
-	Shader::~Shader() {
+	Shader::~Shader() 
+	{
 		free(m_ByteCode);
-		if (m_ShaderModule != NULL) {
+		if (m_ShaderModule != NULL) 
+		{
 			vkDestroyShaderModule(m_Device, m_ShaderModule, nullptr);
 		}
 	}
@@ -208,7 +200,8 @@ namespace gvk {
 		return m_Stage;
 	}
 
-	opt<VkShaderModule> Shader::CreateShaderModule(VkDevice device) {
+	opt<VkShaderModule> Shader::CreateShaderModule(VkDevice device) 
+	{
 		//this function should not be called once
 		gvk_assert(m_ShaderModule == NULL);
 
@@ -219,14 +212,16 @@ namespace gvk {
 		info.codeSize = m_ByteCodeSize;
 		info.flags = 0;
 
-		if (vkCreateShaderModule(device, &info, nullptr, &m_ShaderModule) == VK_SUCCESS) {
+		if (vkCreateShaderModule(device, &info, nullptr, &m_ShaderModule) == VK_SUCCESS) 
+		{
 			m_Device = device;
 			return m_ShaderModule;
 		}
 		return std::nullopt;
 	}
 
-	opt<VkShaderModule>	Shader::GetShaderModule() {
+	opt<VkShaderModule>	Shader::GetShaderModule() 
+	{
 		//we should not return any null value
 		if (m_ShaderModule == NULL) return std::nullopt;
 		return m_ShaderModule;

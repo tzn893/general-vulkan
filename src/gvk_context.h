@@ -18,18 +18,25 @@ enum GVK_LAYER {
 
 enum GVK_INSTANCE_EXTENSION 
 {
+	//includes 2 extensions
+	//debug utils and debug report
 	GVK_INSTANCE_EXTENSION_DEBUG,
+
 	GVK_INSTANCE_EXTENSION_COUNT
 };
 
 enum GVK_DEVICE_EXTENSION 
 {
 	GVK_DEVICE_EXTENSION_SWAP_CHAIN,
+
 	//ray tracing contains 3 extensions 
 	//acceleration structure,ray tracing pipeline,deferred host operation
 	GVK_DEVICE_EXTENSION_RAYTRACING,
+	
 	GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS,
 	GVK_DEVICE_EXTENSION_GEOMETRY_SHADER,
+	GVK_DEVICE_EXTENSION_DEBUG_MARKER,
+	
 	GVK_DEVICE_EXTENSION_COUNT
 };
 
@@ -67,7 +74,25 @@ struct GvkSamplerCreateInfo : public VkSamplerCreateInfo
 	GvkSamplerCreateInfo(VkFilter magFilter,VkFilter minFilter,VkSamplerMipmapMode mode);
 };
 
-namespace gvk {
+namespace gvk 
+{
+	class GvkExtensionFunctionManager
+	{
+	public:
+		void LoadExtension(const char* ext,VkDevice device);
+
+		void vkDebugMarkerSetObjectTagEXT(VkDevice device, const VkDebugMarkerObjectTagInfoEXT* pTagInfo);
+		void vkDebugMarkerSetObjectNameEXT(VkDevice device, const VkDebugMarkerObjectNameInfoEXT* pNameInfo);
+		void vkCmdDebugMarkerBeginEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo);
+		void vkCmdDebugMarkerEndEXT(VkCommandBuffer commandBuffer);
+		void vkCmdDebugMarkerInsertEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo);
+	private:
+		PFN_vkDebugMarkerSetObjectNameEXT	p_vkDebugMarkerSetObjectNameEXT = NULL;
+		PFN_vkDebugMarkerSetObjectTagEXT	p_vkDebugMarkerSetObjectTagEXT = NULL;
+		PFN_vkCmdDebugMarkerBeginEXT		p_vkCmdDebugMarkerBeginEXT = NULL;
+		PFN_vkCmdDebugMarkerEndEXT			p_vkCmdDebugMarkerEndEXT = NULL;
+		PFN_vkCmdDebugMarkerInsertEXT		p_vkCmdDebugMarkerInsertEXT = NULL;
+	};
 
 	class Context {
 		friend class CommandQueue;

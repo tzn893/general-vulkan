@@ -1,6 +1,9 @@
 #include "gvk_command.h"
 #include "gvk_context.h"
 
+
+extern gvk::GvkExtensionFunctionManager g_ExtFunctionManager;
+
 namespace gvk {
 
 	opt<uint32> Context::FindSuitableQueueIndex(VkFlags flags, float priority)
@@ -178,6 +181,20 @@ namespace gvk {
 		return Submit(&cmd_buffer, 1, info, target_fence, stall_for_host);
 	}
 
+	void CommandQueue::SetDebugName(const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)m_CommandQueue;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+	}
+
 	CommandQueue::~CommandQueue()
 	{
 		//collect allocated queue info
@@ -204,6 +221,20 @@ namespace gvk {
 			return std::nullopt;
 		}
 		return cmd_buffer;
+	}
+
+	void CommandPool::SetDebugName(const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_POOL_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)m_CommandPool;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	CommandPool::~CommandPool()
@@ -278,4 +309,50 @@ void GvkBindVertexIndexBuffers::Emit()
 		vkCmdBindVertexBuffers(cmd, last_bind_start, 8 - last_bind_start, verts.data() + last_bind_start,
 			offsets.data() + last_bind_start);
 	}
+}
+
+GvkDebugMarker::GvkDebugMarker(VkCommandBuffer cmd, const char* name)
+{
+	this->cmd = cmd;
+	float color[4] = { 1,1,1,1 };
+	VkDebugMarkerMarkerInfoEXT info = InitInfo(color, name);
+
+	g_ExtFunctionManager.vkCmdDebugMarkerBeginEXT(cmd, &info);
+}
+
+GvkDebugMarker::GvkDebugMarker(VkCommandBuffer cmd, const char* name,const float* color)
+{
+	this->cmd = cmd;
+	VkDebugMarkerMarkerInfoEXT info = InitInfo(color, name);
+	
+	g_ExtFunctionManager.vkCmdDebugMarkerBeginEXT(cmd, &info);
+}
+
+void GvkDebugMarker::End()
+{
+	if (cmd != NULL)
+	{
+		g_ExtFunctionManager.vkCmdDebugMarkerEndEXT(cmd);
+		cmd = NULL;
+	}
+}
+
+GvkDebugMarker::~GvkDebugMarker()
+{
+	End();
+}
+
+VkDebugMarkerMarkerInfoEXT GvkDebugMarker::InitInfo(const float* color, const char* name)
+{
+	VkDebugMarkerMarkerInfoEXT info;
+
+	info.pNext = NULL;
+	info.color[0] = color[0];
+	info.color[1] = color[1];
+	info.color[2] = color[2];
+	info.color[3] = color[3];
+	info.pMarkerName = name;
+	info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT;
+
+	return info;
 }

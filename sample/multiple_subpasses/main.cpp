@@ -51,6 +51,8 @@ bool RecreateFrameBuffers(ptr<gvk::Context> ctx,ptr<gvk::RenderPass> render_pass
 	for (uint32 i = 0; i < back_buffers.size(); i++)
 	{
 		ptr<gvk::Image> back_buffer = back_buffers[i];
+		back_buffer->SetDebugName(("back buffer " + std::to_string(i)).c_str());
+		
 		color_outputs[i] = ctx->CreateImage(color_output_info).value();
 		color_output_view[i] = color_outputs[i]->CreateView(gvk::GetAllAspects(color_output_info.format),
 			0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D).value();
@@ -112,6 +114,7 @@ int main()
 
 	GvkDeviceCreateInfo device_create;
 	device_create.AddDeviceExtension(GVK_DEVICE_EXTENSION_SWAP_CHAIN);
+	device_create.AddDeviceExtension(GVK_DEVICE_EXTENSION_DEBUG_MARKER);
 	device_create.RequireQueue(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT, 1);
 
 	context->InitializeDevice(device_create, &error);
@@ -185,10 +188,12 @@ int main()
 
 	ptr<gvk::Pipeline> graphic_pipeline;
 	require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);
+	graphic_pipeline->SetDebugName("render");
 
 	//create post process pipeline
 	GvkGraphicsPipelineCreateInfo post_process_pipeline_create(displace_vert.value(),displace_frag.value(),render_pass, post_pass_idx);
 	ptr<gvk::Pipeline> post_process_pipeline = context->CreateGraphicsPipeline(post_process_pipeline_create).value();
+	post_process_pipeline->SetDebugName("post process");
 
 	VkSampler sampler;
 	require(context->CreateSampler(GvkSamplerCreateInfo(VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR)), sampler);
@@ -198,6 +203,7 @@ int main()
 	require(context->CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, sizeof(vertexs),
 		GVK_HOST_WRITE_RANDOM), buffer);
 	buffer->Write(vertexs, 0, sizeof(vertexs));
+	buffer->SetDebugName("vertex buffer");
 
 	//create command objects
 	ptr<gvk::CommandQueue> queue;
@@ -275,7 +281,7 @@ int main()
 			},gvk::SemaphoreInfo(),NULL,true
 		);
 	}
-
+	image->SetDebugName("go is god");
 	
 	//create descriptor sets
 	VkImageView view;
@@ -288,6 +294,7 @@ int main()
 	//create forward render descriptor set 
 	ptr<gvk::DescriptorSet>	descriptor_set;
 	require(descriptor_allocator->Allocate(descriptor_set_layout), descriptor_set);
+	descriptor_set->SetDebugName("set");
 
 	//create post procss descriptor sets
 	post_desc_set.resize(context->GetBackBufferCount());
@@ -385,6 +392,10 @@ int main()
 			cmd_buffer
 		).NextSubPass(
 			[&]() {
+
+				//Add a debug marker
+			GvkDebugMarker marker(cmd_buffer, "render");
+
 			GvkBindPipeline(cmd_buffer, graphic_pipeline);
 
 			GvkDescriptorSetBindingUpdate(cmd_buffer, graphic_pipeline)
@@ -411,6 +422,9 @@ int main()
 			.EndPass(
 			[&]()
 			{
+				//Add a debug marker
+				GvkDebugMarker marker(cmd_buffer, "post process");
+
 				GvkBindPipeline(cmd_buffer, post_process_pipeline);
 
 				GvkDescriptorSetBindingUpdate(cmd_buffer, post_process_pipeline)

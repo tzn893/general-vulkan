@@ -162,6 +162,8 @@ namespace gvk {
 		/// <returns>return buffer size</returns>
 		uint64_t		GetSize();
 
+		void			SetDebugName(const std::string& name);
+
 		~Buffer();
 	private:
 		Buffer(GVK_HOST_WRITE_PROPERTY write_prop, VkBuffer buffer, VmaAllocation alloc,void* mapped_data,
@@ -214,6 +216,8 @@ namespace gvk {
 		VkImageViewType       type);
 
 		View<VkImageView> GetViews();
+
+		void			  SetDebugName(const std::string& name);
 
 		~Image();
 	private:

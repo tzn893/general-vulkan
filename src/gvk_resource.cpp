@@ -1,6 +1,8 @@
 #include "gvk_resource.h"
 #include "gvk_context.h"
 
+extern gvk::GvkExtensionFunctionManager g_ExtFunctionManager;
+
 namespace gvk {
 	bool Context::IntializeMemoryAllocation(bool addressable, uint32 vk_api_version, std::string* error)
 	{
@@ -104,6 +106,20 @@ namespace gvk {
 	uint64_t Buffer::GetSize()
 	{
 		return m_BufferSize;
+	}
+
+	void Buffer::SetDebugName(const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)m_Buffer;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	Buffer::~Buffer()
@@ -213,6 +229,20 @@ namespace gvk {
 	gvk::View<VkImageView> Image::GetViews()
 	{
 		return View(m_Views);
+	}
+
+	void Image::SetDebugName(const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)m_Image;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	Image::~Image()
