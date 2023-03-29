@@ -591,6 +591,20 @@ namespace gvk {
 		return m_Pass;
 	}
 
+	void RenderPass::SetDebugName(const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)m_Pass;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+	}
+
 	gvk::RenderPassInlineContent RenderPass::Begin(VkFramebuffer framebuffer, VkClearValue* clear_values, VkRect2D render_area,
 		VkViewport viewport, VkRect2D sissor, VkCommandBuffer command_buffer)
 	{

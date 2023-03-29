@@ -52,6 +52,8 @@ namespace gvk {
 		uint32_t					GetSubpassCount();
 		VkRenderPass			GetRenderPass();
 
+		void					SetDebugName(const std::string& name);
+
 		RenderPassInlineContent	Begin(VkFramebuffer framebuffer,VkClearValue* clear_values,
 			VkRect2D render_area,VkViewport viewport,VkRect2D sissor,VkCommandBuffer command_buffer);
 

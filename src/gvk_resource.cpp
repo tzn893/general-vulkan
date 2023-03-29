@@ -220,6 +220,16 @@ namespace gvk {
 			return std::nullopt;
 		}
 
+		if (debug_name != "")
+		{
+			//name the view
+			std::string view_name = debug_name +
+				(levelCount == 1 ? gvk::string_format("_mip_%d", baseMipLevel) : gvk::string_format("_mip_%d~%d", baseMipLevel, baseMipLevel + levelCount - 1)) +
+				(layerCount == 1 ? gvk::string_format("_arr_%d", baseArrayLayer) : gvk::string_format("_arr_%d~%d", baseArrayLayer,baseArrayLayer + layerCount - 1));
+
+			ImageViewSetDebugName(view, m_Device, view_name);
+		}
+
 		m_ViewTable[range] = view;
 		m_Views.push_back(view);
 
@@ -233,6 +243,8 @@ namespace gvk {
 
 	void Image::SetDebugName(const std::string& name)
 	{
+		debug_name = name;
+
 		VkDebugMarkerObjectNameInfoEXT info{};
 		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
 		// Type of the object to be named
@@ -264,6 +276,21 @@ namespace gvk {
 	Image::Image(VkImage image, VmaAllocation alloc, VmaAllocator allocator,VkDevice device, const GvkImageCreateInfo& info):
 		m_Image(image),m_Allocation(alloc),m_Allocator(allocator),m_Device(device),m_Info(info)
 	{}
+
+	void ImageViewSetDebugName(VkImageView view,VkDevice device, const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)view;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(device, &info);
+	}
+
 }
 
 using namespace gvk;

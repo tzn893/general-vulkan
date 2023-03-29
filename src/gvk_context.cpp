@@ -265,6 +265,39 @@ namespace gvk {
 		return View(m_BackBuffers);
 	}
 
+	void Context::SetDebugNameImageView(VkImageView view, const std::string& name)
+	{
+		ImageViewSetDebugName(view, m_Device, name);
+	}
+
+	void Context::SetDebugNameSampler(VkSampler sampler, const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)sampler;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+	}
+
+	void Context::SetDebugNameCommandBuffer(VkCommandBuffer cmd, const std::string& name)
+	{
+		VkDebugMarkerObjectNameInfoEXT info{};
+		info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		// Type of the object to be named
+		info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
+		// Handle of the object cast to unsigned 64-bit integer
+		info.object = (uint64_t)cmd;
+		// Name to be displayed in the offline debugging application
+		info.pObjectName = name.c_str();
+
+		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+	}
+
 	Context::~Context() {
 		m_Window = nullptr;
 		m_PresentQueue = nullptr;

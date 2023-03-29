@@ -2,10 +2,8 @@
 #include "shader.h"
 #include <chrono>
 
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stbi.h"
-
 
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 

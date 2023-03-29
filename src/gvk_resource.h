@@ -232,5 +232,8 @@ namespace gvk {
 
 		std::unordered_map<GvkImageSubresourceRange, VkImageView> m_ViewTable;
 		std::vector<VkImageView> m_Views;
+		std::string debug_name = "";
 	};
+
+	void ImageViewSetDebugName(VkImageView view,VkDevice device,const std::string& name);
 }

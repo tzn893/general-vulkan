@@ -376,6 +376,10 @@ namespace gvk
 		/// <returns>view of back buffer array</returns>
 		View<ptr<Image>>			  GetBackBuffers();
 
+		void						  SetDebugNameImageView(VkImageView view,const std::string& name);
+		void						  SetDebugNameSampler(VkSampler sampler,const std::string& name);
+		void						  SetDebugNameCommandBuffer(VkCommandBuffer cmd,const std::string& name);
+
 		~Context();
 	private:
 		
@@ -478,7 +482,4 @@ namespace gvk
 		void		 OnCommandQueueDestroy(CommandQueue* queue);
 
 	};
-
-
-
 }
