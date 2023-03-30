@@ -71,13 +71,13 @@ struct mat3x2
 
 #define UNIFORM_BUFFER(UB, b, s) struct UB {
 
-#define UNIFORM_BUFFER_END(UB) };
+#define UNIFORM_BUFFER_END(UB,name) };
 
 #else
 
 #define UNIFORM_BUFFER(UB, b, s) layout(binding = b,set = s) uniform UB {
 
-#define	UNIFORM_BUFFER_END(UB) };
+#define	UNIFORM_BUFFER_END(UB,name) } name;
 
 #define PUSH_CONSTANT(PC) layout(push_constant) uniform PC {
 
