@@ -141,6 +141,7 @@ namespace gvk {
 
 	static GVK_KEY convert_key_code(int glfw_key) 
 	{
+		gvk_assert(glfw_key <= GLFW_KEY_LAST);
 		return g_key_table[glfw_key];
 	}
 
