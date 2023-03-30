@@ -20,8 +20,26 @@ int main() {
 			printf("position : (%f,%f), offset: (%f,%f)\n", pos.x, pos.y, offset.x, offset.y);
 		}
 
-		
-
+		if (window->KeyDown(GVK_KEY_SHIFT))
+		{
+			printf("shift pressed\n");
+		}
+		if (window->KeyDown(GVK_KEY_CONTROL))
+		{
+			printf("control pressed\n");
+		}if (window->KeyDown(GVK_KEY_SPACE))
+		{
+			printf("space pressed\n");
+		}if (window->KeyDown(GVK_KEY_0))
+		{
+			printf("0 pressed\n");
+		}if (window->KeyDown(GVK_KEY_TAB))
+		{
+			printf("tab pressed\n");
+		}if (window->KeyDown(GVK_KEY_ESCAPE))
+		{
+			printf("esc pressed\n");
+		}
 
 		window->UpdateWindow();
 	}
