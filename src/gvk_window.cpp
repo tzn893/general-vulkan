@@ -20,12 +20,15 @@ namespace gvk {
 		return GVK_KEY_NUM;
 	}
 
-	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) 
+	static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
 		GVK_KEY gvk_key = convert_key_code(key);
-		if (gvk_key >= GVK_KEY_NUM) {return;}
-		
-		g_window->m_KeyState[(uint32)gvk_key] = action;
+		if (gvk_key >= GVK_KEY_NUM) { return; }
+
+		if (action == GLFW_PRESS || action == GLFW_RELEASE)
+		{
+			g_window->m_KeyState[(uint32)gvk_key] = action;
+		}
 	}
 
 	static void frame_resize_callback(GLFWwindow* window,int width,int height) 
@@ -96,7 +99,7 @@ namespace gvk {
 	{
 		int code = convert_mouse_code(button);
 		
-		if (code < GVK_KEY_NUM)
+		if (code < GVK_KEY_NUM && (action == GLFW_PRESS || action == GLFW_RELEASE))
 		{
 			g_window->m_KeyState[code] = action;
 		}
