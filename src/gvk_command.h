@@ -6,7 +6,8 @@
 
 namespace gvk {
 	// We don't hide command pool from user because importance of command pool in multi-threading
-	class CommandPool {
+	class CommandPool 
+	{
 		friend class Context;
 		friend class CommandQueue;
 	public:
@@ -37,7 +38,8 @@ namespace gvk {
 		VkDevice      m_Device;
 	};
 
-	class SemaphoreInfo {
+	class SemaphoreInfo 
+	{
 	private:
 		friend class CommandQueue;
 		friend class Context;
@@ -45,18 +47,25 @@ namespace gvk {
 		std::vector<VkPipelineStageFlags> wait_semaphore_stages;
 		std::vector<VkSemaphore> signal_semaphores;
 	public:
-		SemaphoreInfo& Wait(VkSemaphore wait_semaphore, VkPipelineStageFlags stage) {
+
+		SemaphoreInfo& Wait(VkSemaphore wait_semaphore, VkPipelineStageFlags stage) 
+		{
 			wait_semaphores.push_back(wait_semaphore);
 			wait_semaphore_stages.push_back(stage);
 			return *this;
 		}
-		SemaphoreInfo& Signal(VkSemaphore signal_semaphore) {
+
+		SemaphoreInfo& Signal(VkSemaphore signal_semaphore) 
+		{
 			signal_semaphores.push_back(signal_semaphore);
 			return *this;
 		}
+
+		static SemaphoreInfo None();
 	};
 
-	class CommandQueue {
+	class CommandQueue 
+	{
 		friend class Context;
 	public:
 		/// <summary>

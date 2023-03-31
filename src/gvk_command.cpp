@@ -249,6 +249,10 @@ namespace gvk {
 		m_CommandPool(pool),m_QueueFamilyIndex(queue_family),m_Device(device)
 	{}
 
+	gvk::SemaphoreInfo SemaphoreInfo::None()
+	{
+		return gvk::SemaphoreInfo();
+	}
 }
 
 void GvkBindPipeline(VkCommandBuffer cmd, gvk::ptr<gvk::Pipeline> pipeline)

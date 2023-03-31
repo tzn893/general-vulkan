@@ -38,6 +38,11 @@ struct GvkImageCreateInfo {
 		VkImageUsageFlags usage);
 
 	static GvkImageCreateInfo MippedImage2D(VkFormat format,uint32_t width,uint32_t height,uint32_t miplevels,VkImageUsageFlags usages);
+
+	static GvkImageCreateInfo ImageCube(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage);
+
+	static GvkImageCreateInfo MippedImageCube(VkFormat format, uint32_t width, uint32_t height,uint32_t miplevels, VkImageUsageFlags usage);
+
 };
 
 

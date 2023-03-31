@@ -332,6 +332,35 @@ GvkImageCreateInfo GvkImageCreateInfo::MippedImage2D(VkFormat format, uint32 wid
 }
 
 
+GvkImageCreateInfo GvkImageCreateInfo::ImageCube(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage)
+{
+	GvkImageCreateInfo create_info{};
+	create_info.arrayLayers = 6;
+	create_info.mipLevels = 1;
+	create_info.imageType = VK_IMAGE_TYPE_2D;
+	create_info.extent.depth = 1;
+	create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	create_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+
+	create_info.format = format;
+	create_info.extent.width = width;
+	create_info.extent.height = height;
+	create_info.usage = usage;
+
+	return create_info;
+}
+
+GvkImageCreateInfo GvkImageCreateInfo::MippedImageCube(VkFormat format, uint32_t width, uint32_t height, uint32_t miplevels, VkImageUsageFlags usage)
+{
+	GvkImageCreateInfo info = ImageCube(format, width, height, usage);
+	info.mipLevels = miplevels;
+
+	return info;
+}
+
 GvkBarrier& GvkBarrier::ImageBarrier(ptr<gvk::Image> image, VkImageLayout init_layout, VkImageLayout final_layout,
 	VkAccessFlags src_access_flags, VkAccessFlags dst_access_flags)
 {
