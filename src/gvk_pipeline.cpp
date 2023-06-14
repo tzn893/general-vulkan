@@ -1,7 +1,6 @@
 #include "gvk_pipeline.h"
 #include "gvk_context.h"
 
-extern gvk::GvkExtensionFunctionManager g_ExtFunctionManager;
 
 namespace gvk {
 
@@ -652,7 +651,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	gvk::RenderPassInlineContent RenderPass::Begin(VkFramebuffer framebuffer, VkClearValue* clear_values, VkRect2D render_area,
@@ -740,7 +739,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	Pipeline::~Pipeline()
@@ -788,7 +787,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	DescriptorSet::~DescriptorSet()

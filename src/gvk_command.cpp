@@ -2,8 +2,6 @@
 #include "gvk_context.h"
 
 
-extern gvk::GvkExtensionFunctionManager g_ExtFunctionManager;
-
 namespace gvk {
 
 	opt<uint32> Context::FindSuitableQueueIndex(VkFlags flags, float priority)
@@ -192,7 +190,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	CommandQueue::~CommandQueue()
@@ -234,7 +232,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	CommandPool::~CommandPool()
@@ -262,17 +260,17 @@ void GvkBindPipeline(VkCommandBuffer cmd, gvk::ptr<gvk::Pipeline> pipeline)
 
 void GvkDrawMeshTasks(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
 {
-	g_ExtFunctionManager.vkCmdDrawMeshTasksEXT(commandBuffer, groupCountX, groupCountY, groupCountZ);
+	vkCmdDrawMeshTasksEXT(commandBuffer, groupCountX, groupCountY, groupCountZ);
 }
 
 void GvkDrawMeshTasksIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
 {
-	g_ExtFunctionManager.vkCmdDrawMeshTasksIndirectEXT(commandBuffer, buffer, offset, drawCount, stride);
+	vkCmdDrawMeshTasksIndirectEXT(commandBuffer, buffer, offset, drawCount, stride);
 }
 
 void GvkDrawMeshTasksIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
 {
-	g_ExtFunctionManager.vkCmdDrawMeshTasksIndirectCountEXT(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+	vkCmdDrawMeshTasksIndirectCountEXT(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
 }
 
 GvkBindVertexIndexBuffers::GvkBindVertexIndexBuffers(VkCommandBuffer cmd)
@@ -334,7 +332,7 @@ GvkDebugMarker::GvkDebugMarker(VkCommandBuffer cmd, const char* name)
 	float color[4] = { 1,1,1,1 };
 	VkDebugMarkerMarkerInfoEXT info = InitInfo(color, name);
 
-	g_ExtFunctionManager.vkCmdDebugMarkerBeginEXT(cmd, &info);
+	vkCmdDebugMarkerBeginEXT(cmd, &info);
 }
 
 GvkDebugMarker::GvkDebugMarker(VkCommandBuffer cmd, const char* name,const float* color)
@@ -342,14 +340,14 @@ GvkDebugMarker::GvkDebugMarker(VkCommandBuffer cmd, const char* name,const float
 	this->cmd = cmd;
 	VkDebugMarkerMarkerInfoEXT info = InitInfo(color, name);
 	
-	g_ExtFunctionManager.vkCmdDebugMarkerBeginEXT(cmd, &info);
+	vkCmdDebugMarkerBeginEXT(cmd, &info);
 }
 
 void GvkDebugMarker::End()
 {
 	if (cmd != NULL)
 	{
-		g_ExtFunctionManager.vkCmdDebugMarkerEndEXT(cmd);
+		vkCmdDebugMarkerEndEXT(cmd);
 		cmd = NULL;
 	}
 }

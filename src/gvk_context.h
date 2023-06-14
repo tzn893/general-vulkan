@@ -83,38 +83,6 @@ struct GvkSamplerCreateInfo : public VkSamplerCreateInfo
 
 namespace gvk 
 {
-	class GvkExtensionFunctionManager
-	{
-	public:
-		void LoadExtension(const char* ext,VkDevice device);
-
-		void vkDebugMarkerSetObjectTagEXT(VkDevice device, const VkDebugMarkerObjectTagInfoEXT* pTagInfo);
-		void vkDebugMarkerSetObjectNameEXT(VkDevice device, const VkDebugMarkerObjectNameInfoEXT* pNameInfo);
-		void vkCmdDebugMarkerBeginEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo);
-		void vkCmdDebugMarkerEndEXT(VkCommandBuffer commandBuffer);
-		void vkCmdDebugMarkerInsertEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo);
-
-		void vkCmdDrawMeshTasksEXT(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
-		void vkCmdDrawMeshTasksIndirectEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride);
-		void vkCmdDrawMeshTasksIndirectCountEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
-
-		void vkCreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback);
-		void vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator);
-
-	private:
-		PFN_vkDebugMarkerSetObjectNameEXT	p_vkDebugMarkerSetObjectNameEXT = NULL;
-		PFN_vkDebugMarkerSetObjectTagEXT	p_vkDebugMarkerSetObjectTagEXT = NULL;
-		PFN_vkCmdDebugMarkerBeginEXT		p_vkCmdDebugMarkerBeginEXT = NULL;
-		PFN_vkCmdDebugMarkerEndEXT			p_vkCmdDebugMarkerEndEXT = NULL;
-		PFN_vkCmdDebugMarkerInsertEXT		p_vkCmdDebugMarkerInsertEXT = NULL;
-
-		PFN_vkCmdDrawMeshTasksEXT			p_vkCmdDrawMeshTasksEXT = NULL;
-		PFN_vkCmdDrawMeshTasksIndirectCountEXT p_vkCmdDrawMeshTasksIndirectCountEXT = NULL;
-		PFN_vkCmdDrawMeshTasksIndirectEXT   p_vkCmdDrawMeshTasksIndirectEXT = NULL;
-
-		PFN_vkCreateDebugReportCallbackEXT  p_vkCreateDebugReportCallbackEXT = NULL;
-		PFN_vkDestroyDebugReportCallbackEXT p_vkDestroyDebugReportCallbackEXT = NULL;
-	};
 
 	class Context {
 		friend class CommandQueue;

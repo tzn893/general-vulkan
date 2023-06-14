@@ -1,8 +1,6 @@
 #include "gvk_context.h"
 using namespace gvk;
 
-GvkExtensionFunctionManager g_ExtFunctionManager;
-
 struct GvkExpectStrEqualTo {
 	GvkExpectStrEqualTo(const char* lhs) {
 		this->lhs = lhs;
@@ -59,6 +57,11 @@ namespace gvk {
 	opt<ptr<gvk::Context>> Context::CreateContext(const char* app_name, GVK_VERSION app_version,
 		uint32 api_version, ptr<Window> window, std::string* error) {
 		gvk_assert(window != nullptr);
+
+		if (volkInitialize() != VK_SUCCESS)
+		{
+			return std::nullopt;
+		}
 
 		ptr<Context> context(new Context());
 		context->m_AppInfo.pApplicationName = app_name;
@@ -185,6 +188,10 @@ namespace gvk {
 				return false;
 			}
 		}
+
+		#ifdef GVK_WINDOWS_PLATFORM
+			AddNotRepeatedElement(m_RequiredInstanceExtensions, VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+		#endif
 			
 		VkInstanceCreateInfo inst_create{};
 		inst_create.pApplicationInfo = &m_AppInfo;
@@ -232,6 +239,8 @@ namespace gvk {
 			if (error != nullptr) *error = "gvk : fail to create vulkan instance";
 			return false;
 		}
+
+		volkLoadInstance(m_VkInstance);
 		
 		return true;
 	}
@@ -349,7 +358,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	void Context::SetDebugNameCommandBuffer(VkCommandBuffer cmd, const std::string& name)
@@ -363,7 +372,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	Context::~Context() {
@@ -616,11 +625,6 @@ namespace gvk {
 			}
 		}
 #endif
-		//load extension functions 
-		for (auto ext : create.required_extensions)
-		{
-			g_ExtFunctionManager.LoadExtension(ext, m_Device);
-		}
 
 		//initialize memory allocation
 		m_Allocator = NULL;
@@ -635,6 +639,8 @@ namespace gvk {
 		}
 
 		m_DeviceAddressable = addressable;
+		volkLoadDevice(m_Device);
+
 		return IntializeMemoryAllocation(addressable, m_AppInfo.apiVersion, error);
 	}
 
@@ -1049,93 +1055,9 @@ namespace gvk {
 	{
 		return m_CurrentFrameIndex;
 	}
-
-	void GvkExtensionFunctionManager::vkCmdDrawMeshTasksEXT(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
-	{
-		gvk_assert(p_vkCmdDrawMeshTasksEXT != NULL);
-		p_vkCmdDrawMeshTasksEXT(commandBuffer, groupCountX, groupCountY, groupCountZ);
-	}
-
-	void GvkExtensionFunctionManager::vkCmdDrawMeshTasksIndirectEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
-	{
-		gvk_assert(p_vkCmdDrawMeshTasksIndirectEXT);
-		p_vkCmdDrawMeshTasksIndirectEXT(commandBuffer, buffer, offset, drawCount, stride);
-	}
-
-	void GvkExtensionFunctionManager::vkCmdDrawMeshTasksIndirectCountEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
-	{
-		gvk_assert(p_vkCmdDrawMeshTasksIndirectCountEXT);
-		p_vkCmdDrawMeshTasksIndirectCountEXT(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
-	}
-
-	void GvkExtensionFunctionManager::vkCreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback)
-	{
-		gvk_assert(p_vkCreateDebugReportCallbackEXT);
-		p_vkCreateDebugReportCallbackEXT(instance, pCreateInfo, pAllocator, pCallback);
-	}
-
-	void GvkExtensionFunctionManager::vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator)
-	{
-		gvk_assert(p_vkDestroyDebugReportCallbackEXT);
-		p_vkDestroyDebugReportCallbackEXT(instance, callback, pAllocator);
-
-	}
 }
 
-void GvkExtensionFunctionManager::LoadExtension(const char* name, VkDevice device)
-{
-	if(strcmp(name, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) == 0)
-	{
-		p_vkDebugMarkerSetObjectTagEXT = (PFN_vkDebugMarkerSetObjectTagEXT)vkGetDeviceProcAddr(device, "vkDebugMarkerSetObjectTagEXT");
-		p_vkDebugMarkerSetObjectNameEXT = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(device, "vkDebugMarkerSetObjectNameEXT");
-		p_vkCmdDebugMarkerBeginEXT = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerBeginEXT");
-		p_vkCmdDebugMarkerEndEXT = (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerEndEXT");
-		p_vkCmdDebugMarkerInsertEXT = (PFN_vkCmdDebugMarkerInsertEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerInsertEXT");
-	
-		
-	}
-	if (strcmp(name, VK_EXT_MESH_SHADER_EXTENSION_NAME))
-	{
-		p_vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksEXT");
-		p_vkCmdDrawMeshTasksIndirectEXT = (PFN_vkCmdDrawMeshTasksIndirectEXT)vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksIndirectEXT");
-		p_vkCmdDrawMeshTasksIndirectCountEXT = (PFN_vkCmdDrawMeshTasksIndirectCountEXT)vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksIndirectCountEXT");
-	}
-	if (strcmp(name, VK_EXT_DEBUG_REPORT_EXTENSION_NAME))
-	{
-		p_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetDeviceProcAddr(device, "vkCreateDebugReportCallbackEXT");
-		p_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetDeviceProcAddr(device, "vkDestroyDebugReportCallbackEXT");
-	}
-}
 
-void GvkExtensionFunctionManager::vkDebugMarkerSetObjectTagEXT(VkDevice device, const VkDebugMarkerObjectTagInfoEXT* pTagInfo)
-{
-	gvk_assert(g_ExtFunctionManager.p_vkDebugMarkerSetObjectTagEXT != NULL);
-	g_ExtFunctionManager.p_vkDebugMarkerSetObjectTagEXT(device, pTagInfo);
-}
-
-void GvkExtensionFunctionManager::vkDebugMarkerSetObjectNameEXT(VkDevice device, const VkDebugMarkerObjectNameInfoEXT* pNameInfo)
-{
-	gvk_assert(g_ExtFunctionManager.p_vkDebugMarkerSetObjectNameEXT != NULL);
-	g_ExtFunctionManager.p_vkDebugMarkerSetObjectNameEXT(device, pNameInfo);
-}
-
-void GvkExtensionFunctionManager::vkCmdDebugMarkerBeginEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo)
-{
-	gvk_assert(g_ExtFunctionManager.p_vkCmdDebugMarkerBeginEXT != NULL);
-	g_ExtFunctionManager.p_vkCmdDebugMarkerBeginEXT(commandBuffer, pMarkerInfo);
-}
-
-void GvkExtensionFunctionManager::vkCmdDebugMarkerEndEXT(VkCommandBuffer commandBuffer)
-{
-	gvk_assert(g_ExtFunctionManager.p_vkCmdDebugMarkerEndEXT != NULL);
-	g_ExtFunctionManager.p_vkCmdDebugMarkerEndEXT(commandBuffer);
-}
-
-void GvkExtensionFunctionManager::vkCmdDebugMarkerInsertEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo)
-{
-	gvk_assert(g_ExtFunctionManager.p_vkCmdDebugMarkerInsertEXT != NULL);
-	g_ExtFunctionManager.p_vkCmdDebugMarkerInsertEXT(commandBuffer, pMarkerInfo);
-}
 
 GvkDeviceCreateInfo& GvkDeviceCreateInfo::RequireQueue(VkFlags queue_flags, uint32 count, float priority /*= 1.0f*/)
 {

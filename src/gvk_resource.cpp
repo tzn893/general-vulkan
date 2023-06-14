@@ -1,14 +1,13 @@
 #include "gvk_resource.h"
 #include "gvk_context.h"
 
-extern gvk::GvkExtensionFunctionManager g_ExtFunctionManager;
 
 namespace gvk {
 	bool Context::IntializeMemoryAllocation(bool addressable, uint32 vk_api_version, std::string* error)
 	{
 		VmaVulkanFunctions funcs{};
-		funcs.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
-		funcs.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
+		funcs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+		funcs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
 
 		VmaAllocatorCreateInfo info{};
 		info.device = m_Device;
@@ -119,7 +118,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	Buffer::~Buffer()
@@ -254,7 +253,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(m_Device, &info);
+		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
 	Image::~Image()
@@ -288,7 +287,7 @@ namespace gvk {
 		// Name to be displayed in the offline debugging application
 		info.pObjectName = name.c_str();
 
-		g_ExtFunctionManager.vkDebugMarkerSetObjectNameEXT(device, &info);
+		vkDebugMarkerSetObjectNameEXT(device, &info);
 	}
 
 }

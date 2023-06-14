@@ -1,7 +1,8 @@
 #pragma once
-#include <vma/vk_mem_alloc.h>
 #include "gvk_common.h"
 #include <unordered_map>
+#include <vma/vk_mem_alloc.h>
+
 
 enum GVK_HOST_WRITE_PROPERTY 
 {
