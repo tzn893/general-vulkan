@@ -296,6 +296,8 @@ namespace gvk {
 
 
 	opt<ptr<Pipeline>> Context::CreateGraphicsPipeline(const GvkGraphicsPipelineCreateInfo& info) {
+ 		bool mesh_shader_enabled = info.mesh_shader != nullptr;
+		
 		VkGraphicsPipelineCreateInfo vk_create_info{};
 		vk_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		vk_create_info.pNext = NULL;
@@ -324,7 +326,7 @@ namespace gvk {
 		vk_create_info.pDynamicState = &dynamic_state_info;
 		vk_create_info.pMultisampleState = &info.multi_sample_state;
 		vk_create_info.pRasterizationState = &info.rasterization_state;
-		vk_create_info.pInputAssemblyState = &info.input_assembly_state;
+		vk_create_info.pInputAssemblyState = !mesh_shader_enabled ? &info.input_assembly_state : NULL;
 	
 		//view port state
 		VkPipelineViewportStateCreateInfo viewport_state{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
@@ -332,80 +334,90 @@ namespace gvk {
 		viewport_state.viewportCount = 1;
 		vk_create_info.pViewportState = &viewport_state;
 
-		//input vertex attributes
-		//TODO : currently we don't support multiple vertex bindings
-		VkPipelineVertexInputStateCreateInfo vertex_input_state{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-		vertex_input_state.flags = 0;
-
 		std::vector<SpvReflectInterfaceVariable*> vertex_input;
-		if (auto v = info.vertex_shader->GetInputVariables(); v.has_value())
-		{
-			vertex_input = std::move(v.value());
-		}
-		else
-		{
-			return std::nullopt;
-		}
+		std::vector<VkVertexInputAttributeDescription> attributes;
 
-		std::sort(vertex_input.begin(), vertex_input.end(), 
-			[](SpvReflectInterfaceVariable* lhs, SpvReflectInterfaceVariable* rhs) {
-				return lhs->location < rhs->location;
-			}
-		);
 
-		//get rid of gl preserved words
-		for (auto iter = vertex_input.begin(); iter < vertex_input.end();)
+		if (!mesh_shader_enabled) 
 		{
-			std::string name = (*iter)->name;
-			if (name.substr(0,3) == "gl_")
+			//input vertex attributes
+			//TODO : currently we don't support multiple vertex bindings
+			VkPipelineVertexInputStateCreateInfo vertex_input_state{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+			vertex_input_state.flags = 0;
+
+			if (auto v = info.vertex_shader->GetInputVariables(); v.has_value())
 			{
-				iter = vertex_input.erase(iter);
+				vertex_input = std::move(v.value());
 			}
 			else
 			{
-				iter++;
+				return std::nullopt;
 			}
-		}
 
-		std::vector<VkVertexInputAttributeDescription> attributes(vertex_input.size());
-		uint32 total_stride = 0, current_offset = 0;
-		for (uint32 i = 0;i < vertex_input.size();i++) 
-		{
-			auto member = vertex_input[i];
-			uint32 size = GetFormatSize((VkFormat)member->format);
-			total_stride += size;
+			std::sort(vertex_input.begin(), vertex_input.end(),
+				[](SpvReflectInterfaceVariable* lhs, SpvReflectInterfaceVariable* rhs) {
+					return lhs->location < rhs->location;
+				}
+			);
 
-			//TODO: currently we only support 1 binding
-			attributes[i].binding = 0;
-			attributes[i].format = (VkFormat)member->format;
-			attributes[i].location = member->location;
-			attributes[i].offset = current_offset;
+			//get rid of gl preserved words
+			for (auto iter = vertex_input.begin(); iter < vertex_input.end();)
+			{
+				std::string name = (*iter)->name;
+				if (name.substr(0, 3) == "gl_")
+				{
+					iter = vertex_input.erase(iter);
+				}
+				else
+				{
+					iter++;
+				}
+			}
 
-			current_offset += size;
-		}
+			attributes.resize(vertex_input.size());
 
-		VkVertexInputBindingDescription binding{};
-		binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		binding.binding = 0;
-		binding.stride = total_stride;
+			uint32 total_stride = 0, current_offset = 0;
+			for (uint32 i = 0; i < vertex_input.size(); i++)
+			{
+				auto member = vertex_input[i];
+				uint32 size = GetFormatSize((VkFormat)member->format);
+				total_stride += size;
 
-		vertex_input_state.pVertexAttributeDescriptions = attributes.data();
-		vertex_input_state.vertexAttributeDescriptionCount = attributes.size();
+				//TODO: currently we only support 1 binding
+				attributes[i].binding = 0;
+				attributes[i].format = (VkFormat)member->format;
+				attributes[i].location = member->location;
+				attributes[i].offset = current_offset;
 
-		//TODO : currently we only support 1 binding
-		if (!attributes.empty())
-		{
-			vertex_input_state.pVertexBindingDescriptions = &binding;
-			vertex_input_state.vertexBindingDescriptionCount = 1;
+				current_offset += size;
+			}
+
+			VkVertexInputBindingDescription binding{};
+			binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+			binding.binding = 0;
+			binding.stride = total_stride;
+
+			vertex_input_state.pVertexAttributeDescriptions = attributes.data();
+			vertex_input_state.vertexAttributeDescriptionCount = attributes.size();
+
+			//TODO : currently we only support 1 binding
+			if (!attributes.empty())
+			{
+				vertex_input_state.pVertexBindingDescriptions = &binding;
+				vertex_input_state.vertexBindingDescriptionCount = 1;
+			}
+			else
+			{
+				vertex_input_state.pVertexAttributeDescriptions = NULL;
+				vertex_input_state.vertexBindingDescriptionCount = 0;
+			}
+
+			vk_create_info.pVertexInputState = &vertex_input_state;
 		}
 		else
 		{
-			vertex_input_state.pVertexAttributeDescriptions = NULL;
-			vertex_input_state.vertexBindingDescriptionCount = 0;
+			vk_create_info.pVertexInputState = NULL;
 		}
-
-		vk_create_info.pVertexInputState = &vertex_input_state;
-		
 
 		//shader stages
 		std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
@@ -436,17 +448,35 @@ namespace gvk {
 			return true;
 		};
 
-		if (!create_shader_stage(info.vertex_shader)) 
+		if (!mesh_shader_enabled)
 		{
-			return std::nullopt;
+			if (!create_shader_stage(info.vertex_shader))
+			{
+				return std::nullopt;
+			}
+			if (info.geometry_shader != nullptr)
+			{
+				if (!create_shader_stage(info.geometry_shader))
+				{
+					return std::nullopt;
+				}
+			}
 		}
-		if (info.geometry_shader != nullptr) 
+		else
 		{
-			if (!create_shader_stage(info.geometry_shader))
+			if (info.task_shader != nullptr)
+			{
+				if (!create_shader_stage(info.task_shader))
+				{
+					return std::nullopt;
+				}
+			}
+			if (!create_shader_stage(info.mesh_shader))
 			{
 				return std::nullopt;
 			}
 		}
+
 		if (!create_shader_stage(info.fragment_shader)) 
 		{
 			return std::nullopt;
@@ -456,18 +486,38 @@ namespace gvk {
 		vk_create_info.stageCount = shader_stage_infos.size();
 
 		DescriptorLayoutInfoHelper descriptor_helper(info.descriptor_layuot_hint, *this);
-		if (!descriptor_helper.CollectDescriptorLayoutInfo(info.vertex_shader))
+		if (!mesh_shader_enabled) 
 		{
-			return std::nullopt;
+			if (!descriptor_helper.CollectDescriptorLayoutInfo(info.vertex_shader))
+			{
+				return std::nullopt;
+			}
+			if (info.geometry_shader != nullptr)
+			{
+				if (!descriptor_helper.CollectDescriptorLayoutInfo(info.geometry_shader))
+				{
+					return std::nullopt;
+				}
+			}
 		}
-		if (info.geometry_shader != nullptr)
+		else
 		{
-			if (!descriptor_helper.CollectDescriptorLayoutInfo(info.geometry_shader))
+			if (info.task_shader != nullptr)
+			{
+				if (!descriptor_helper.CollectDescriptorLayoutInfo(info.task_shader))
+				{
+					return std::nullopt;
+				}
+			}
+
+			if (!descriptor_helper.CollectDescriptorLayoutInfo(info.mesh_shader))
 			{
 				return std::nullopt;
 			}
 		}
-		if (!descriptor_helper.CollectDescriptorLayoutInfo(info.fragment_shader)) {
+		
+		if (!descriptor_helper.CollectDescriptorLayoutInfo(info.fragment_shader))
+		{
 			return std::nullopt;
 		}
 
@@ -1008,6 +1058,7 @@ GvkGraphicsPipelineCreateInfo::RasterizationStateCreateInfo::RasterizationStateC
 	lineWidth = 1.f;
 }
 
+
 GvkGraphicsPipelineCreateInfo::GvkGraphicsPipelineCreateInfo(ptr<gvk::Shader> vert, ptr<gvk::Shader> frag, ptr<gvk::RenderPass> render_pass, uint32 subpass_index,
 	const GvkGraphicsPipelineCreateInfo::BlendState* blend_states)
  :vertex_shader(vert),fragment_shader(frag),target_pass(render_pass),subpass_index(subpass_index) 
@@ -1017,16 +1068,20 @@ GvkGraphicsPipelineCreateInfo::GvkGraphicsPipelineCreateInfo(ptr<gvk::Shader> ve
 
 	if (blend_states == NULL && fragment_output_count != 0)
 	{
-		static std::vector<GvkGraphicsPipelineCreateInfo::BlendState> s_blend_states;
-		s_blend_states.resize(fragment_output_count, GvkGraphicsPipelineCreateInfo::BlendState());
-		blend_states = s_blend_states.data();
+		for (uint32 i = 0;i < fragment_output_count;i++)
+		{
+			frame_buffer_blend_state.Set(i, GvkGraphicsPipelineCreateInfo::BlendState());
+		}
 	}
-
-	for (uint32 i = 0;i < fragment_output_count;i++)
+	else if(fragment_output_count != 0)
 	{
-		frame_buffer_blend_state.Set(i, blend_states[i]);
+		for (uint32 i = 0; i < fragment_output_count; i++)
+		{
+			frame_buffer_blend_state.Set(i, blend_states[i]);
+		}
 	}
 }
+
 
 void GvkDescriptorLayoutHint::AddDescriptorSetLayout(const ptr<gvk::DescriptorSetLayout>& layout)
 {
@@ -1309,4 +1364,41 @@ void GvkDescriptorSetBindingUpdate::Update()
 	}
 	vkCmdBindDescriptorSets(cmd_buffer, bind_point, layout, batch_first_set_idx,
 		batch_set_cnt, sets.data(), 0, NULL);
+}
+
+GvkGraphicsPipelineCreateInfo GvkPipelineCIInitializer::mesh(gvk::ptr<gvk::Shader> task, gvk::ptr<gvk::Shader> mesh, gvk::ptr<gvk::Shader> frag, gvk::ptr<gvk::RenderPass> render_pass, uint32_t subpass_idx, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states)
+{
+	GvkGraphicsPipelineCreateInfo pipelineCI{};
+	pipelineCI.task_shader = task;
+	pipelineCI.mesh_shader = mesh;
+	pipelineCI.fragment_shader = frag;
+	pipelineCI.target_pass = render_pass;
+	pipelineCI.subpass_index = subpass_idx;
+
+	uint32 fragment_output_count = frag->GetOutputVariableCount();
+	pipelineCI.frame_buffer_blend_state.Resize(fragment_output_count);
+
+	if (blend_states == NULL && fragment_output_count != 0)
+	{
+		for (uint32 i = 0; i < fragment_output_count; i++)
+		{
+			pipelineCI.frame_buffer_blend_state.Set(i, GvkGraphicsPipelineCreateInfo::BlendState());
+		}
+	}
+	else if (fragment_output_count != 0)
+	{
+		for (uint32 i = 0; i < fragment_output_count; i++)
+		{
+			pipelineCI.frame_buffer_blend_state.Set(i, blend_states[i]);
+		}
+	}
+
+	return pipelineCI;
+}
+
+GvkComputePipelineCreateInfo GvkPipelineCIInitializer::compute(gvk::ptr<gvk::Shader> comp)
+{
+	GvkComputePipelineCreateInfo info;
+	info.shader = comp;
+	return info;
 }

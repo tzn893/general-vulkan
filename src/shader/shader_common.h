@@ -73,6 +73,10 @@ struct mat3x2
 
 #define UNIFORM_BUFFER_END(UB,name) };
 
+#define STORAGE_BUFFER(SB, b, s) struct SB {
+
+#define STORAGE_BUFFER_END(SB, name) };
+
 #else
 
 #define UNIFORM_BUFFER(UB, b, s) layout(binding = b,set = s) uniform UB {
@@ -82,6 +86,10 @@ struct mat3x2
 #define PUSH_CONSTANT(PC) layout(push_constant) uniform PC {
 
 #define PUSH_CONSTANT_END(PC) };
+
+#define STORAGE_BUFFER(SB, b, s)  layout(std140, binding = b, set = s) buffer SB {
+
+#define STORAGE_BUFFER_END(SB, name) } name;
 
 
 #endif

@@ -1,0 +1,70 @@
+#version 450
+#extension GL_EXT_mesh_shader : require
+#extension GL_EXT_debug_printf : enable
+
+layout (push_constant) uniform PC 
+{
+	mat4 mvp;
+    float time;
+} pc;
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(triangles, max_vertices = 3, max_primitives = 1) out;
+
+
+const vec4[4] positions = {
+	vec4( 0.0,  0.0, 0.0, 1.0),
+	vec4( 0.0,  0.0, 1.0, 1.0),
+	vec4( 1.0,  0.0, 1.0, 1.0),
+    vec4( 1.0,  0.0, 0.0, 1.0)
+};
+
+float height(vec2 pos)
+{
+    pos.xy = pos.xy;
+    float time = pc.time;
+    return sin(pos.x * 1.7 + 0.5 * time) * 0.3 +
+        sin(pos.y * 1.9 + 0.2 * time) * 0.29 +
+        sin(pos.x * 0.5 + pos.y * 0.5 + 0.4 * time) * 0.17 +
+        sin(pos.x * 8 + pos.y * 7 + 9 * time) * 0.01;
+}
+
+vec4 getPosition(vec4 offset, uint idx)
+{
+    vec4 pos = offset + positions[idx];
+    //pos.y = height(pos.xz);
+    return pos;
+}
+
+void main()
+{
+    vec2 coord = gl_GlobalInvocationID.xy;
+    uint idx = gl_GlobalInvocationID.z;
+	vec4 offset = vec4(gl_GlobalInvocationID.xy, 0, 0.0);
+
+	SetMeshOutputsEXT(3, 1);
+	mat4 mvp = pc.mvp;
+
+    uint v0 = 0;
+    uint v1 = 1;
+    uint v2 = 2;
+
+    debugPrintfEXT("from mesh thread group %d %d %d\n",gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, gl_GlobalInvocationID.z);
+
+    
+    if(idx == 0)
+    {
+        gl_MeshVerticesEXT[v0].gl_Position = mvp * getPosition(offset, 0);
+        gl_MeshVerticesEXT[v1].gl_Position = mvp * getPosition(offset, 1);
+        gl_MeshVerticesEXT[v2].gl_Position = mvp * getPosition(offset, 2);
+
+    }
+    else
+    {
+        gl_MeshVerticesEXT[v0].gl_Position = mvp * getPosition(offset, 1);
+        gl_MeshVerticesEXT[v1].gl_Position = mvp * getPosition(offset, 2);
+        gl_MeshVerticesEXT[v2].gl_Position = mvp * getPosition(offset, 3);
+    }
+	gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex] =  uvec3(v0, v1, v2);
+    
+}

@@ -12,11 +12,16 @@ void TestShader(const char* shader_file)
 {
 	const char* include_dirs[] = { TEST_SHADER_DIRECTORY };
 	const char* search_pathes[] = { TEST_SHADER_DIRECTORY };
+
+	std::cout << "======================" << shader_file << "======================\n";
+	
 	auto opt_shader = gvk::Shader::Compile(
 		shader_file, gvk::ShaderMacros(),
 		include_dirs, 1, search_pathes, 1, nullptr);
 
 	gvk::ptr<gvk::Shader> shader = opt_shader.value();
+	std::cout << "shader stage:" << shader->GetStage() << std::endl;
+
 	auto input = shader->GetInputVariables().value();
 	std::cout << "input variables:" << std::endl;
 	for (auto& in : input) {
@@ -47,11 +52,13 @@ void TestShader(const char* shader_file)
 			std::cout << "\t\t name:" << member.name << " offset" << member.offset << " size=" << member.size << " type description:" << member.type_description << std::endl;
 		}
 	}
+
+	std::cout << "============================================\n\n\n";
 }
 
 
 int main() {
-	const char* shaders[] = {"geom.geom","vert.vert","compute.comp"};
+	const char* shaders[] = {"geom.geom","vert.vert","compute.comp", "mesh.mesh", "mesh.task"};
 
 	for (int i = 0;i < gvk_count_of(shaders);i++)
 	{

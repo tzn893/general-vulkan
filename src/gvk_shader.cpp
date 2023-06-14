@@ -65,6 +65,52 @@ namespace gvk {
 	}
 
 
+	struct ShaderCompileOptions
+	{
+		std::vector<std::string> include_directories;
+		std::vector<std::string> macros;
+		std::vector<std::string> definitions;
+		std::string stage;
+		std::string file;
+		std::string output_file;
+		std::string target_env;
+		std::string target_spv;
+	};
+
+
+	std::string GenerateCommandLine(ShaderCompileOptions& options)
+	{
+		std::string cmd;
+		for (uint32 i = 0; i < options.macros.size(); i++)
+		{
+			cmd += std::string(" -D") + std::string(options.macros[i]);
+			if (options.definitions[i] != "")
+			{
+				cmd += "=" + std::string(options.definitions[i]);
+			}
+		}
+
+		if (options.target_env != "")
+		{
+			cmd += "- -target-env=vulkan" + options.target_env;
+		}
+		if (options.target_spv != "")
+		{
+			cmd += " --target-spv=spv" + options.target_spv;
+		}
+
+		for (uint32 i = 0; i < options.include_directories.size(); i++)
+		{
+			cmd += " -I " + options.include_directories[i];
+		}
+
+		gvk_assert(options.stage != "");
+		gvk_assert(options.file != "");
+		cmd += " " + options.file + " -o " + options.output_file;
+		return cmd;
+	}
+
+
 	opt<ptr<gvk::Shader>> Shader::Compile(const char* file,
 		const ShaderMacros& macros,
 		const char** include_directories, uint32 include_directory_count,
@@ -83,50 +129,50 @@ namespace gvk {
 			if (error) *error = "gvk : input file" + std::string(file) + "  doesn't exists";
 			return std::nullopt;
 		}
-
-
-		std::string output = input + ".spv";
-		//add macros to glslc
-		std::string options = " " + input + " -o " + output;
-
-		//if shader is ray tracing shaders
-		if (ext == ".rhit" || ext == ".rgen" || ext == ".rmiss")
+		
+		ShaderCompileOptions options;
+		options.stage = ext.substr(1, ext.size() - 1);
+		if (options.stage == "rhit" || ext == "rgen" || ext == "rmiss")
 		{
-			//only target environment vulkan1.2 supports ray tracing shaders
-			options += " --target-env=vulkan1.2";
+			options.target_env = "1.2";
 		}
+		if (options.stage == "mesh" || options.stage == "task")
+		{
+			options.target_spv = "1.4";
+		}
+		if (options.stage == "vert")
+		{
+			options.macros.push_back("VERTEX_SHADER");
+			options.definitions.push_back("");
+		}
+		if (options.stage == "geom")
+		{
+			options.macros.push_back("GEOMETRY_SHADER");
+			options.definitions.push_back("");
+		}
+		if (options.stage == "frag")
+		{
+			options.macros.push_back("FRAGMENT_SHADER");
+			options.definitions.push_back("");
+		}
+
+		for (uint32 i = 0; i < include_directory_count; i++) 
+		{
+			options.include_directories.push_back(std::string(include_directories[i]));
+		}
+		options.include_directories.push_back(GVK_SHADER_COMMON_DIRECTORY);
+		
+		options.file = input;
+		options.output_file = input + ".spv";
 
 		for (uint32 i = 0; i < macros.name.size(); i++)
 		{
-			options += " -D" + std::string(macros.name[i]);
-			if (macros.value[i] != nullptr)
-			{
-				options += "=" + std::string(macros.value[i]);
-			}
+			options.macros.push_back(macros.name[i]);
+			options.definitions.push_back((macros.value[i] == nullptr ? "" : macros.value[i]));
 		}
-		
-		if (ext == ".vert")
-		{
-			options += " -DVERTEX_SHADER";
-		}
-		if (ext == ".geom")
-		{
-			options += " -DGEOMETRY_SHADER";
-		}
-		if (ext == ".frag")
-		{
-			options += " -DFRAGMENT_SHADER";
-		}
-
-		//add include directories to glslc
-		for (uint32 i = 0; i < include_directory_count; i++) {
-			options += " -I " + std::string(include_directories[i]);
-		}
-		//every shader should include shader/shader_common.h
-		options += " -I " + std::string(GVK_SHADER_COMMON_DIRECTORY);
 
 		//lauch the compile process
-		if (auto v = LauchProcess(GLSLC_EXECUATABLE, options.c_str()); !v.has_value())
+		if (auto v = LauchProcess(GLSLC_EXECUATABLE, GenerateCommandLine(options).c_str()); !v.has_value())
 		{
 			if (error != nullptr) *error = "gvk : fail to create glslc process";
 			return std::nullopt;
@@ -136,7 +182,20 @@ namespace gvk {
 			return std::nullopt;
 		}
 
-		return LoadFromBinaryFile(output, error);
+		auto opt_shader =  LoadFromBinaryFile(options.output_file, error);
+
+		// unfortunately reflection can't read mesh shader stage
+		// we have to set it manually
+		if (options.stage == "mesh" && opt_shader.has_value())
+		{
+			opt_shader.value()->m_Stage = VK_SHADER_STAGE_MESH_BIT_EXT;
+		}
+		if (options.stage == "task" && opt_shader.has_value())
+		{
+			opt_shader.value()->m_Stage = VK_SHADER_STAGE_TASK_BIT_EXT;
+		}
+
+		return opt_shader;
 	}
 
 

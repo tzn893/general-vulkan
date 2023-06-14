@@ -21,6 +21,40 @@ static inline void AddNotRepeatedElement(std::vector<const char*>& target, const
 	}
 }
 
+template<typename T>
+void AddNotRepeatedElementEq(std::vector<T>& target, T element)
+{
+	if(find(target.begin(),target.end(), element) == target.end())
+	{
+		target.push_back(element);
+	}
+}
+
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT /*type*/,
+	uint64_t /*object*/, size_t /*location*/, int32_t /*message_code*/,
+	const char* layer_prefix, const char* message, void* /*user_data*/)
+{
+	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+	{
+		printf("%s: %s\n", layer_prefix, message);
+	}
+	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+	{
+		printf("%s: %s\n", layer_prefix, message);
+	}
+	else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
+	{
+		printf("%s: %s\n", layer_prefix, message);
+	}
+	else
+	{
+		printf("%s: %s\n", layer_prefix, message);
+	}
+	return VK_FALSE;
+}
+
+
 namespace gvk {
 	opt<ptr<gvk::Context>> Context::CreateContext(const char* app_name, GVK_VERSION app_version,
 		uint32 api_version, ptr<Window> window, std::string* error) {
@@ -81,11 +115,6 @@ namespace gvk {
 		return m_BackBufferCount;
 	}
 
-	static std::vector<const char*> target_extensions[GVK_INSTANCE_EXTENSION_COUNT] = {
-			{VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_EXTENSION_NAME},
-			//GVK_INSTANCE_EXTENSION_DEBUG
-	};
-
 	static const char* layer_name_table[GVK_LAYER_COUNT] = {
 			"VK_LAYER_KHRONOS_validation",
 			"VK_LAYER_LUNARG_monitor",//GVK_INSTANCE_EXTENSION_LUNARG_FPS_MONITOR
@@ -94,15 +123,27 @@ namespace gvk {
 	bool Context::AddInstanceExtension(GVK_INSTANCE_EXTENSION e_extension) {
 		gvk_assert(e_extension < GVK_INSTANCE_EXTENSION_COUNT);
 
-		std::vector<const char*>& target = target_extensions[e_extension];
-		//for removing added extensions
-		for(auto extension : target) {
-			//extension is not supported
-			if (!m_SupportedInstanceExtensions.count(extension)) {
-				return false;
-			}
+
+		switch (e_extension)
+		{
+		case GVK_INSTANCE_EXTENSION_DEBUG:
+			AddNotRepeatedElement(m_RequiredInstanceExtensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+			AddNotRepeatedElement(m_RequiredInstanceExtensions, VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+			break;
+		case GVK_INSTANCE_EXTENSION_SHADER_PRINT:
+			AddNotRepeatedElement(m_RequiredInstanceExtensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+			AddNotRepeatedElement(m_RequiredInstanceExtensions, VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+			AddNotRepeatedElementEq(m_validationFeatureEnabled, VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT);
+
+			m_debugCallbackCreate = true;
+			m_debugReportFlags |= VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
+
+			break;
+		default:
+			// should not reach this branch!
+			gvk_assert(false);
+			break;
 		}
-		m_RequiredInstanceExtensions.insert(m_RequiredInstanceExtensions.end(), target.begin(), target.end());
 
 		return true;
 	}
@@ -140,9 +181,6 @@ namespace gvk {
 			if (!res)
 			{
 				std::string ext_names = "";
-				for (auto name : target_extensions[ext]) {
-					ext_names = ext_names.append(name).append(" ");
-				}
 				*error = "gvk : fail to enable instance extension " + ext_names;
 				return false;
 			}
@@ -158,6 +196,36 @@ namespace gvk {
 		inst_create.ppEnabledExtensionNames = m_RequiredInstanceExtensions.empty() ? nullptr : m_RequiredInstanceExtensions.data();
 
 		inst_create.pNext = nullptr;
+
+		VkValidationFeaturesEXT  validation_features{};
+		if (!m_validationFeatureEnabled.empty() || !m_validationFeatureDisabled.empty())
+		{
+			validation_features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+			if (!m_validationFeatureEnabled.empty())
+			{
+				validation_features.enabledValidationFeatureCount = m_validationFeatureEnabled.size();
+				validation_features.pEnabledValidationFeatures = m_validationFeatureEnabled.data();
+			}
+			if(!m_validationFeatureDisabled.empty())
+			{
+				validation_features.disabledValidationFeatureCount = m_validationFeatureDisabled.size();
+				validation_features.pDisabledValidationFeatures = m_validationFeatureDisabled.data();
+			}
+
+			validation_features.pNext = inst_create.pNext;
+			inst_create.pNext = &validation_features;
+		}
+
+		VkDebugReportCallbackCreateInfoEXT debugReportCI{};
+		if (m_debugCallbackCreate)
+		{
+			debugReportCI.pfnCallback = debug_callback;
+			debugReportCI.flags = m_debugReportFlags;
+			debugReportCI.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+			
+			debugReportCI.pNext = inst_create.pNext;
+			inst_create.pNext = &debugReportCI;
+		}
 
 		if (vkCreateInstance(&inst_create,nullptr,&m_VkInstance) != VK_SUCCESS) {
 			//TODO log error message
@@ -494,6 +562,17 @@ namespace gvk {
 		device_create.enabledExtensionCount = create.required_extensions.size();
 		device_create.ppEnabledExtensionNames = create.required_extensions.data();
 		device_create.pEnabledFeatures = &create.required_features;
+
+		if (create.p_ext_features != nullptr)
+		{
+			VkPhysicalDeviceFeatures2 features2{};
+			features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+			features2.pNext = create.p_ext_features;
+			features2.features = create.required_features;
+			device_create.pNext = &features2;
+
+			device_create.pEnabledFeatures = nullptr;
+		}
 
 		if (vkCreateDevice(m_PhyDevice, &device_create, nullptr, &m_Device) != VK_SUCCESS) {
 			if (error != nullptr) *error = "gvk : fail to create device";
@@ -970,6 +1049,37 @@ namespace gvk {
 	{
 		return m_CurrentFrameIndex;
 	}
+
+	void GvkExtensionFunctionManager::vkCmdDrawMeshTasksEXT(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
+	{
+		gvk_assert(p_vkCmdDrawMeshTasksEXT != NULL);
+		p_vkCmdDrawMeshTasksEXT(commandBuffer, groupCountX, groupCountY, groupCountZ);
+	}
+
+	void GvkExtensionFunctionManager::vkCmdDrawMeshTasksIndirectEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
+	{
+		gvk_assert(p_vkCmdDrawMeshTasksIndirectEXT);
+		p_vkCmdDrawMeshTasksIndirectEXT(commandBuffer, buffer, offset, drawCount, stride);
+	}
+
+	void GvkExtensionFunctionManager::vkCmdDrawMeshTasksIndirectCountEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
+	{
+		gvk_assert(p_vkCmdDrawMeshTasksIndirectCountEXT);
+		p_vkCmdDrawMeshTasksIndirectCountEXT(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+	}
+
+	void GvkExtensionFunctionManager::vkCreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback)
+	{
+		gvk_assert(p_vkCreateDebugReportCallbackEXT);
+		p_vkCreateDebugReportCallbackEXT(instance, pCreateInfo, pAllocator, pCallback);
+	}
+
+	void GvkExtensionFunctionManager::vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator)
+	{
+		gvk_assert(p_vkDestroyDebugReportCallbackEXT);
+		p_vkDestroyDebugReportCallbackEXT(instance, callback, pAllocator);
+
+	}
 }
 
 void GvkExtensionFunctionManager::LoadExtension(const char* name, VkDevice device)
@@ -981,6 +1091,19 @@ void GvkExtensionFunctionManager::LoadExtension(const char* name, VkDevice devic
 		p_vkCmdDebugMarkerBeginEXT = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerBeginEXT");
 		p_vkCmdDebugMarkerEndEXT = (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerEndEXT");
 		p_vkCmdDebugMarkerInsertEXT = (PFN_vkCmdDebugMarkerInsertEXT)vkGetDeviceProcAddr(device, "vkCmdDebugMarkerInsertEXT");
+	
+		
+	}
+	if (strcmp(name, VK_EXT_MESH_SHADER_EXTENSION_NAME))
+	{
+		p_vkCmdDrawMeshTasksEXT = (PFN_vkCmdDrawMeshTasksEXT)vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksEXT");
+		p_vkCmdDrawMeshTasksIndirectEXT = (PFN_vkCmdDrawMeshTasksIndirectEXT)vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksIndirectEXT");
+		p_vkCmdDrawMeshTasksIndirectCountEXT = (PFN_vkCmdDrawMeshTasksIndirectCountEXT)vkGetDeviceProcAddr(device, "vkCmdDrawMeshTasksIndirectCountEXT");
+	}
+	if (strcmp(name, VK_EXT_DEBUG_REPORT_EXTENSION_NAME))
+	{
+		p_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetDeviceProcAddr(device, "vkCreateDebugReportCallbackEXT");
+		p_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetDeviceProcAddr(device, "vkDestroyDebugReportCallbackEXT");
 	}
 }
 
@@ -1038,7 +1161,26 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		AddNotRepeatedElement(required_extensions, "VK_KHR_buffer_device_address");
 		break;
 	case GVK_DEVICE_EXTENSION_GEOMETRY_SHADER:
-		required_features.geometryShader = true;
+		required_features.geometryShader = VK_TRUE;
+		break;
+	case GVK_DEVICE_EXTENSION_MESH_SHADER:
+		AddNotRepeatedElement(required_extensions, VK_EXT_MESH_SHADER_EXTENSION_NAME);
+		AddNotRepeatedElement(required_extensions, VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+		AddNotRepeatedElement(required_extensions, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+		if (!mesh_features_added)
+		{
+			memset(&mesh_features, 0, sizeof(mesh_features));
+
+			mesh_features_added = VK_TRUE;
+			*pp_next_feature = &mesh_features;
+			pp_next_feature = &mesh_features.pNext;
+			mesh_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+		}
+		mesh_features.taskShader = VK_TRUE;
+		mesh_features.meshShader = VK_TRUE;
+		break;
+	case GVK_DEVICE_EXTENSION_FILL_NON_SOLID:
+		required_features.fillModeNonSolid = VK_TRUE;
 		break;
 	default:
 		gvk_assert(false);

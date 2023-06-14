@@ -1,32 +1,12 @@
 #include "gvk.h"
 #include "shader.h"
-#include <chrono>
 
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stbi.h"
-
+#include "timer.h"
+#include "image.h"
 
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 
 using namespace gvk;
-
-float current_time() {
-
-	using namespace std::chrono;
-	static uint64_t start = 0;
-	if (start == 0) start = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-	uint64_t ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-	return (float)(ms - start) / 1000.f;
-}
-
-std::tuple<void*, uint32, uint32> load_image() 
-{
-	int width, height, comp;
-	std::string path = std::string(TRIANGLE_SHADER_DIRECTORY) + "/texture.jpg";
-	void* image = stbi_load(path.c_str(), &width, &height, &comp, 4);
-	return std::make_tuple(image, (uint32)width, (uint32)height);
-}
 
 int main() 
 {
@@ -145,7 +125,7 @@ int main()
 	//load images
 	ptr<gvk::Image> image;
 	{
-		auto [data, width, height] = load_image();
+		auto [data, width, height] = load_image(ASSET_DIRECTORY + std::string("texture.jpg"));
 
 		//create a staging buffer for data transfer
 		ptr<gvk::Buffer> stageing_buffer;

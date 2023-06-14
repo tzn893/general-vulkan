@@ -1,35 +1,14 @@
 #include "gvk.h"
 #include "shader.h"
-#include <chrono>
-#include "math.h"
-
-
+#include "gvk_math.h"
 using namespace Math;
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stbi.h"
-
+#include "image.h"
+#include "timer.h"
 
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 
 using namespace gvk;
-
-float current_time() {
-
-	using namespace std::chrono;
-	static uint64_t start = 0;
-	if (start == 0) start = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-	uint64_t ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-	return (float)(ms - start) / 1000.f;
-}
-
-std::tuple<void*, uint32, uint32> load_image() 
-{
-	int width, height, comp;
-	std::string path = std::string(CUBE_SHADER_DIRECTORY) + "/go.jpg";
-	void* image = stbi_load(path.c_str(), &width, &height, &comp, 4);
-	return std::make_tuple(image, (uint32)width, (uint32)height);
-}
 
 int window_width = 600, window_height = 600;
 
@@ -201,7 +180,7 @@ int main()
 	//load images
 	ptr<gvk::Image> image;
 	{
-		auto [data, width, height] = load_image();
+		auto [data, width, height] = load_image(ASSET_DIRECTORY + std::string("texture.jpg"));
 
 		//create a staging buffer for data transfer
 		ptr<gvk::Buffer> stageing_buffer;
@@ -371,13 +350,14 @@ int main()
 
 			float time = current_time();
 
-			Mat4x4 rotate = Math::mat_rotation(Quaternion(normalize(Vector3f(0, 1, 1)), time));
-			Mat4x4 model = mat_position(Vector3f(0, 0, 10.f)) *rotate;
-			Mat4x4 proj = Math::perspective(window_width / window_height, pi / 2.f, 0.01f, 1000.f);
+			Mat4x4 rotate = Math::rotation(Quaternion(time, normalize(Vector3f(0, 1, 1))));
+			Mat4x4 model = Math::position(Vector3f(0, 0, -10.f)) * rotate;
+			Mat4x4 proj = Math::perspective(pi / 2.f, window_width / window_height, 0.001f, 1000.f);
+
 
 			//mat4 mvp = proj * model;
-			push_constant_proj.Update(cmd_buffer, &mat4(proj));
-			push_constant_model.Update(cmd_buffer, &mat4(model));
+			push_constant_proj.Update(cmd_buffer, &proj);
+			push_constant_model.Update(cmd_buffer, &model);
 
 			GvkBindVertexIndexBuffers(cmd_buffer)
 			.BindVertex(buffer, 0, 0)

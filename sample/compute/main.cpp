@@ -1,17 +1,9 @@
 #include "gvk.h"
-#include <chrono>
 using namespace gvk;
 
+#include "timer.h"
+
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
-
-float current_time() {
-
-	using namespace std::chrono;
-	static uint64_t start = 0;
-	if (start == 0) start = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-	uint64_t ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-	return (float)(ms - start) / 1000.f;
-}
 
 int main()
 {

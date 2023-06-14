@@ -260,13 +260,26 @@ void GvkBindPipeline(VkCommandBuffer cmd, gvk::ptr<gvk::Pipeline> pipeline)
 	vkCmdBindPipeline(cmd, pipeline->GetPipelineBindPoint(), pipeline->GetPipeline());
 }
 
+void GvkDrawMeshTasks(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
+{
+	g_ExtFunctionManager.vkCmdDrawMeshTasksEXT(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
+void GvkDrawMeshTasksIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride)
+{
+	g_ExtFunctionManager.vkCmdDrawMeshTasksIndirectEXT(commandBuffer, buffer, offset, drawCount, stride);
+}
+
+void GvkDrawMeshTasksIndirectCount(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
+{
+	g_ExtFunctionManager.vkCmdDrawMeshTasksIndirectCountEXT(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+}
+
 GvkBindVertexIndexBuffers::GvkBindVertexIndexBuffers(VkCommandBuffer cmd)
 {
 	this->cmd = cmd;
 	bind_start = verts.size();
 	idx = NULL;
-
-	
 }
 
 GvkBindVertexIndexBuffers& GvkBindVertexIndexBuffers::BindVertex(gvk::ptr<gvk::Buffer> vertex, uint32_t bind, VkDeviceSize offset /*= 0*/)

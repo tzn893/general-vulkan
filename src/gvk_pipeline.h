@@ -80,19 +80,19 @@ struct GvkGraphicsPipelineCreateInfo {
 
 	GvkGraphicsPipelineCreateInfo() {}
 	
-
+	//vertex/geometry shader and task/mesh should not coexist!
+	//if task/mesh shader is set,InputAssemblyState,VertexInputState,
+	//vertex and geometry shader are ignored
 	gvk::ptr<gvk::Shader> vertex_shader;
-
-	//TODO : currently we don't support tessellation or geometry stage 
-	//ptr<gvk::Shader> tess_control_shader;
-	//ptr<gvk::Shader> tess_evalue_shader;
 	gvk::ptr<gvk::Shader> geometry_shader;
 
 	gvk::ptr<gvk::Shader> fragment_shader;
 
-	//TODO : currently we don't support mesh shader work flow
-	//ptr<gvk::Shader> task_shader;
-	//ptr<gvk::Shader> mesh_shader;
+	//vertex/geometry shader and task/mesh should not coexist!
+	//if task/mesh shader is set,InputAssemblyState,VertexInputState,
+	//vertex and geometry shader are ignored
+	gvk::ptr<gvk::Shader> task_shader;
+	gvk::ptr<gvk::Shader> mesh_shader;
 	
 	struct RasterizationStateCreateInfo : public VkPipelineRasterizationStateCreateInfo {
 		//constructor will set usually used parameters automatically
@@ -153,24 +153,55 @@ struct GvkGraphicsPipelineCreateInfo {
 	/// <param name="blend_states">pointer to array of blend states of graphics pipeline,the array size must equal to count of output of fragment shader</param>
 	GvkGraphicsPipelineCreateInfo(gvk::ptr<gvk::Shader> vert, gvk::ptr<gvk::Shader> frag, gvk::ptr<gvk::RenderPass> render_pass,
 		uint32_t subpass_index, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states = NULL);
+	
 
 	GvkDescriptorLayoutHint descriptor_layuot_hint;
-
 
 	gvk::ptr<gvk::RenderPass>	target_pass;
 	uint32_t					subpass_index = 0;
 };
 
 
-struct GvkComputePipelineCreateInfo 
+struct GvkComputePipelineCreateInfo
 {
 	gvk::ptr<gvk::Shader>		shader;
 
 	GvkDescriptorLayoutHint		descriptor_layuot_hint;
-
-	gvk::ptr<gvk::RenderPass>	render_pass;
-	uint32_t					subpass_index;
 };
+
+struct GvkPipelineCIInitializer
+{
+	/// <summary>
+	/// constructor of GvkGraphicsPipelineCreateInfo
+	/// </summary>
+	/// <param name="vert">the vertex shader of graphics pipeline</param>
+	/// <param name="frag">the fragment shader of graphics pipeline</param>
+	/// <param name="render_pass">the render pass of graphics pipeline</param>
+	/// <param name="subpass_index">the index of subpass in render pass of graphics pipeline</param>
+	/// <param name="blend_states">pointer to array of blend states of graphics pipeline,the array size must equal to count of output of fragment shader</param>
+	static GvkGraphicsPipelineCreateInfo vertex(gvk::ptr<gvk::Shader> vert, gvk::ptr<gvk::Shader> frag, gvk::ptr<gvk::RenderPass> render_pass,
+		uint32_t subpass_index, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states = NULL)
+	{
+		return GvkGraphicsPipelineCreateInfo(vert, frag, render_pass, subpass_index, blend_states);
+	}
+
+	/// <summary>
+	/// constructor of GvkGraphicsPipelineCreateInfo
+	/// </summary>
+	/// <param name="task">the task shader of graphics pipeline</param>
+	/// <param name="mesh">the mesh shader of graphics pipeline</param>
+	/// <param name="frag">the fragment shader of graphics pipeline</param>
+	/// <param name="render_pass">the render pass of graphics pipeline</param>
+	/// <param name="subpass_idx">the index of subpass in render pass of graphics pipeline</param>
+	/// <param name="blend_states">pointer to array of blend states of graphics pipeline,the array size must equal to count of output of fragment shader</param>
+	static GvkGraphicsPipelineCreateInfo mesh(gvk::ptr<gvk::Shader> task, gvk::ptr<gvk::Shader> mesh, gvk::ptr<gvk::Shader> frag, gvk::ptr<gvk::RenderPass> render_pass,
+		uint32_t subpass_idx, const GvkGraphicsPipelineCreateInfo::BlendState* blend_states);
+
+
+	static GvkComputePipelineCreateInfo compute(gvk::ptr<gvk::Shader> comp);
+};
+
+
 
 struct GvkRenderPassCreateInfo : public VkRenderPassCreateInfo
 {

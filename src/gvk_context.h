@@ -16,26 +16,27 @@ enum GVK_LAYER {
 	GVK_LAYER_COUNT
 };
 
-enum GVK_INSTANCE_EXTENSION 
+enum GVK_INSTANCE_EXTENSION
 {
 	//includes 2 extensions
 	//debug utils and debug report
 	GVK_INSTANCE_EXTENSION_DEBUG,
+	GVK_INSTANCE_EXTENSION_SHADER_PRINT,
 
 	GVK_INSTANCE_EXTENSION_COUNT
 };
 
-enum GVK_DEVICE_EXTENSION 
+enum GVK_DEVICE_EXTENSION
 {
 	GVK_DEVICE_EXTENSION_SWAP_CHAIN,
-
 	//ray tracing contains 3 extensions 
 	//acceleration structure,ray tracing pipeline,deferred host operation
 	GVK_DEVICE_EXTENSION_RAYTRACING,
-	
+	GVK_DEVICE_EXTENSION_FILL_NON_SOLID,
 	GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS,
 	GVK_DEVICE_EXTENSION_GEOMETRY_SHADER,
 	GVK_DEVICE_EXTENSION_DEBUG_MARKER,
+	GVK_DEVICE_EXTENSION_MESH_SHADER,
 	
 	GVK_DEVICE_EXTENSION_COUNT
 };
@@ -55,6 +56,12 @@ struct GvkDeviceCreateInfo
 
 	std::vector<const char*> required_extensions;
 	VkPhysicalDeviceFeatures required_features;
+	void* p_ext_features = NULL;
+	void** pp_next_feature = &p_ext_features;
+
+	VkPhysicalDeviceMeshShaderFeaturesEXT mesh_features;
+	bool mesh_features_added = false;
+	
 	GvkDeviceCreateInfo& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
 	GvkDeviceCreateInfo() :required_features{} {}
@@ -86,12 +93,27 @@ namespace gvk
 		void vkCmdDebugMarkerBeginEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo);
 		void vkCmdDebugMarkerEndEXT(VkCommandBuffer commandBuffer);
 		void vkCmdDebugMarkerInsertEXT(VkCommandBuffer commandBuffer, const VkDebugMarkerMarkerInfoEXT* pMarkerInfo);
+
+		void vkCmdDrawMeshTasksEXT(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+		void vkCmdDrawMeshTasksIndirectEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride);
+		void vkCmdDrawMeshTasksIndirectCountEXT(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkBuffer countBuffer, VkDeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
+
+		void vkCreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback);
+		void vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator);
+
 	private:
 		PFN_vkDebugMarkerSetObjectNameEXT	p_vkDebugMarkerSetObjectNameEXT = NULL;
 		PFN_vkDebugMarkerSetObjectTagEXT	p_vkDebugMarkerSetObjectTagEXT = NULL;
 		PFN_vkCmdDebugMarkerBeginEXT		p_vkCmdDebugMarkerBeginEXT = NULL;
 		PFN_vkCmdDebugMarkerEndEXT			p_vkCmdDebugMarkerEndEXT = NULL;
 		PFN_vkCmdDebugMarkerInsertEXT		p_vkCmdDebugMarkerInsertEXT = NULL;
+
+		PFN_vkCmdDrawMeshTasksEXT			p_vkCmdDrawMeshTasksEXT = NULL;
+		PFN_vkCmdDrawMeshTasksIndirectCountEXT p_vkCmdDrawMeshTasksIndirectCountEXT = NULL;
+		PFN_vkCmdDrawMeshTasksIndirectEXT   p_vkCmdDrawMeshTasksIndirectEXT = NULL;
+
+		PFN_vkCreateDebugReportCallbackEXT  p_vkCreateDebugReportCallbackEXT = NULL;
+		PFN_vkDestroyDebugReportCallbackEXT p_vkDestroyDebugReportCallbackEXT = NULL;
 	};
 
 	class Context {
@@ -447,6 +469,11 @@ namespace gvk
 		ptr<Window> m_Window;
 
 		VkInstance m_VkInstance = NULL;
+		std::vector<VkValidationFeatureEnableEXT> m_validationFeatureEnabled;
+		std::vector<VkValidationFeatureDisableEXT> m_validationFeatureDisabled;
+		int m_debugReportFlags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+		bool m_debugCallbackCreate = false;
+		VkDebugReportCallbackEXT m_debugCallback = NULL;
 
 		VkDevice  m_Device = NULL;
 		VkPhysicalDevice m_PhyDevice = NULL;

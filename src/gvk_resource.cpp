@@ -350,6 +350,8 @@ GvkImageCreateInfo GvkImageCreateInfo::ImageCube(VkFormat format, uint32_t width
 	create_info.extent.height = height;
 	create_info.usage = usage;
 
+	
+
 	return create_info;
 }
 
