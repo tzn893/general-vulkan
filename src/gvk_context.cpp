@@ -35,19 +35,19 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags
 {
 	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
 	{
-		printf("%s: %s\n", layer_prefix, message);
+		printf("\n%s: %s\n", layer_prefix, message);
 	}
 	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
 	{
-		printf("%s: %s\n", layer_prefix, message);
+		printf("\n%s: %s\n", layer_prefix, message);
 	}
 	else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
 	{
-		printf("%s: %s\n", layer_prefix, message);
+		printf("\n%s: %s\n", layer_prefix, message);
 	}
 	else
 	{
-		printf("%s: %s\n", layer_prefix, message);
+		printf("\n%s: %s\n", layer_prefix, message);
 	}
 	return VK_FALSE;
 }
@@ -1070,8 +1070,21 @@ namespace gvk {
 	{
 		return m_CurrentFrameIndex;
 	}
-}
 
+	VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback_filtered(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT type, uint64_t object, size_t location, int32_t message_code, const char* layer_prefix, const char* message, void* user_data)
+	{
+		if (strcmp("Loader Message", layer_prefix) == 0)
+		{
+			return VK_FALSE;
+		}
+		if (strcmp("", layer_prefix) != 0 && (flags) & VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
+		{
+			return VK_FALSE;
+		}
+		return debug_callback(flags, type, object, location, message_code, layer_prefix, message, user_data);
+	}
+
+}
 
 
 GvkDeviceCreateInfo& GvkDeviceCreateInfo::RequireQueue(VkFlags queue_flags, uint32 count, float priority /*= 1.0f*/)

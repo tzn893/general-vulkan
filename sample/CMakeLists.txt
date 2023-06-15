@@ -27,6 +27,10 @@ file(GLOB M_SUBPASS_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/multiple_subpasses/*.h)
 file(GLOB MESH_SHADER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/mesh_shader/*.cpp)
 file(GLOB MESH_SHADER_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/mesh_shader/*.h)
 
+
+file(GLOB DEBUG_PRINT_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/debug_print/*.cpp)
+file(GLOB DEBUG_PRINT_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/debug_print/*.h)
+
 add_executable(window-test ${WINDOW_SOURCE} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 add_executable(shader-test ${SHADER_SOURCE} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 add_executable(triangle ${TRIANGLE_SOURCE} ${TRIANGLE_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
@@ -35,6 +39,7 @@ add_executable(compute ${COMPUTE_SOURCE} ${COMPUTE_SHADER} ${COMMON_FILE_SOURCE}
 add_executable(cube ${CUBE_SOURCE} ${CUBE_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 add_executable(multi-subpass ${M_SUBPASS_SOURCE} ${M_SUBPASS_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 add_executable(mesh-shader ${MESH_SHADER_SOURCE} ${MESH_SHADER_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
+add_executable(debug-print ${DEBUG_PRINT_SOURCE} ${DEBUG_PRINT_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 
 target_link_libraries(window-test gvk glm)
 
@@ -67,3 +72,7 @@ target_include_directories(multi-subpass PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/comm
 add_compile_definitions(MESH_SHADER_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/mesh_shader")
 target_link_libraries(mesh-shader gvk glm)
 target_include_directories(mesh-shader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common)
+
+add_compile_definitions(DEBUG_PRINT_SHADER_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/debug_print")
+target_link_libraries(debug-print gvk glm)
+target_include_directories(debug-print PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common)

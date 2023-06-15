@@ -38,7 +38,6 @@ float noise(vec2 p)
 
 float fbm(vec2 p)
 {
-    p += pc.time;
     p*=0.09;
     float f=0.;
     float freq=4.0;
