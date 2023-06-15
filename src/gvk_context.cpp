@@ -192,6 +192,11 @@ namespace gvk {
 		#ifdef GVK_WINDOWS_PLATFORM
 			AddNotRepeatedElement(m_RequiredInstanceExtensions, VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 		#endif
+
+		if (info.custom_debug_callback != NULL)
+		{
+			m_debugCallbackCreate = true;
+		}
 			
 		VkInstanceCreateInfo inst_create{};
 		inst_create.pApplicationInfo = &m_AppInfo;
@@ -226,7 +231,7 @@ namespace gvk {
 		VkDebugReportCallbackCreateInfoEXT debugReportCI{};
 		if (m_debugCallbackCreate)
 		{
-			debugReportCI.pfnCallback = debug_callback;
+			debugReportCI.pfnCallback = info.custom_debug_callback == NULL ? debug_callback : info.custom_debug_callback;
 			debugReportCI.flags = m_debugReportFlags;
 			debugReportCI.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 			
@@ -241,6 +246,11 @@ namespace gvk {
 		}
 
 		volkLoadInstance(m_VkInstance);
+
+		if (m_debugCallbackCreate)
+		{
+			vkCreateDebugReportCallbackEXT(m_VkInstance, &debugReportCI, NULL, &m_debugCallback);
+		}
 		
 		return true;
 	}
@@ -402,10 +412,15 @@ namespace gvk {
 		if (m_Device != NULL) {
 			vkDestroyDevice(m_Device, nullptr);
 		}
+		if (m_debugCallback)
+		{
+			vkDestroyDebugReportCallbackEXT(m_VkInstance, m_debugCallback, NULL);
+		}
 		if (m_VkInstance != NULL) {
 			//physics device will be destroyed at the same time 
 			vkDestroyInstance(m_VkInstance, nullptr);
 		}
+		
 	}
 
 	

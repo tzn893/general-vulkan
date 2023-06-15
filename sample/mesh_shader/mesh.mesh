@@ -1,6 +1,5 @@
 #version 450
 #extension GL_EXT_mesh_shader : require
-#extension GL_EXT_debug_printf : enable
 
 layout (push_constant) uniform PC 
 {
@@ -19,20 +18,51 @@ const vec4[4] positions = {
     vec4( 1.0,  0.0, 0.0, 1.0)
 };
 
+// hash code from https://www.shadertoy.com/view/XtsGR2 
+float hash(vec2 p)
+{
+    p=fract(p*vec2(5.3983,5.4472));
+   	p+=dot(p.yx,p.xy+vec2(21.5351,14.3137));
+    return fract(p.x*p.y*95.4337);
+}
+
+float noise(vec2 p)
+{
+    vec2 f;
+    f=fract(p);
+    p=floor(p);
+    f=f*f*(3.0-2.0*f);
+    return mix(mix(hash(p),hash(p+vec2(1.0,0.0)),f.x),
+               mix(hash(p+vec2(0.0,1.0)),hash(p+vec2(1.0,1.0)),f.x),f.y);
+}
+
+float fbm(vec2 p)
+{
+    p += pc.time;
+    p*=0.09;
+    float f=0.;
+    float freq=4.0;
+    float amp=0.8;
+    for(int i=0;i<10;++i)
+    {
+        f+=noise(p*freq)*amp;
+        amp*=0.5;
+        freq*=1.79;
+    }
+
+    return f;
+}
+
 float height(vec2 pos)
 {
     pos.xy = pos.xy;
-    float time = pc.time;
-    return sin(pos.x * 1.7 + 0.5 * time) * 0.3 +
-        sin(pos.y * 1.9 + 0.2 * time) * 0.29 +
-        sin(pos.x * 0.5 + pos.y * 0.5 + 0.4 * time) * 0.17 +
-        sin(pos.x * 8 + pos.y * 7 + 9 * time) * 0.01;
+    return fbm(pos) * 3;
 }
 
 vec4 getPosition(vec4 offset, uint idx)
 {
     vec4 pos = offset + positions[idx];
-    //pos.y = height(pos.xz);
+    pos.y = height(pos.xz);
     return pos;
 }
 
@@ -40,7 +70,7 @@ void main()
 {
     vec2 coord = gl_GlobalInvocationID.xy;
     uint idx = gl_GlobalInvocationID.z;
-	vec4 offset = vec4(gl_GlobalInvocationID.xy, 0, 0.0);
+	vec4 offset = vec4(coord.x, 0, coord.y, 0.0);
 
 	SetMeshOutputsEXT(3, 1);
 	mat4 mvp = pc.mvp;
@@ -49,19 +79,19 @@ void main()
     uint v1 = 1;
     uint v2 = 2;
 
-    debugPrintfEXT("from mesh thread group %d %d %d\n",gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, gl_GlobalInvocationID.z);
 
-    
     if(idx == 0)
     {
-        gl_MeshVerticesEXT[v0].gl_Position = mvp * getPosition(offset, 0);
+        vec4 p = getPosition(offset, 0);
+        vec4 v = mvp * getPosition(offset, 0);
+        gl_MeshVerticesEXT[v0].gl_Position = v;
         gl_MeshVerticesEXT[v1].gl_Position = mvp * getPosition(offset, 1);
         gl_MeshVerticesEXT[v2].gl_Position = mvp * getPosition(offset, 2);
 
     }
     else
     {
-        gl_MeshVerticesEXT[v0].gl_Position = mvp * getPosition(offset, 1);
+        gl_MeshVerticesEXT[v0].gl_Position = mvp * getPosition(offset, 0);
         gl_MeshVerticesEXT[v1].gl_Position = mvp * getPosition(offset, 2);
         gl_MeshVerticesEXT[v2].gl_Position = mvp * getPosition(offset, 3);
     }

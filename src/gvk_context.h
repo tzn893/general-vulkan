@@ -74,6 +74,8 @@ struct GvkInstanceCreateInfo
 	
 	GvkInstanceCreateInfo& AddLayer(GVK_LAYER layer);
 	std::vector<GVK_LAYER> required_layers;
+
+	PFN_vkDebugReportCallbackEXT custom_debug_callback = NULL;
 };
 
 struct GvkSamplerCreateInfo : public VkSamplerCreateInfo 

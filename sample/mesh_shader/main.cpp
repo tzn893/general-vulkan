@@ -26,7 +26,7 @@ int main()
 
 	GvkInstanceCreateInfo instance_create;
 	instance_create.AddInstanceExtension(GVK_INSTANCE_EXTENSION_DEBUG);
-	instance_create.AddInstanceExtension(GVK_INSTANCE_EXTENSION_SHADER_PRINT);
+	// instance_create.AddInstanceExtension(GVK_INSTANCE_EXTENSION_SHADER_PRINT);
 	instance_create.AddLayer(GVK_LAYER_DEBUG);
 	instance_create.AddLayer(GVK_LAYER_FPS_MONITOR);
 
@@ -210,13 +210,13 @@ int main()
 			float time = current_time();
 			push_constant_time.Update(cmd_buffer, &time);
 
-			Mat4x4 model = Math::position(Vector3f( 0.f, -5.f, 0.f));
+			Mat4x4 model = Math::position(Vector3f( -50.f, -20.f, -100.f));
 			Mat4x4 proj = Math::perspective(pi / 2.f, window_width / window_height, 0.01f, 1000.f);
 			proj[1][1] *= -1;
-			Mat4x4 mvp = proj;//* model;
+			Mat4x4 mvp = proj * model;
 			push_constant_mvp.Update(cmd_buffer, &mvp);
 
-			GvkDrawMeshTasks(cmd_buffer, 1, 1, 2);
+			GvkDrawMeshTasks(cmd_buffer, 100, 100, 2);
 		});
 
 		vkEndCommandBuffer(cmd_buffer);
