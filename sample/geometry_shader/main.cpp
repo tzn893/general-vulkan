@@ -1,5 +1,4 @@
 #include "gvk.h"
-#include "shader.h"
 
 #include "timer.h"
 #include "image.h"
@@ -7,6 +6,14 @@
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 
 using namespace gvk;
+
+#include "gvk_shader_common.h"
+
+struct GPoint
+{
+	vec3 pos;
+	vec3 color;
+};
 
 
 int main()
@@ -98,10 +105,10 @@ int main()
 			back_buffer->Info().extent.width, back_buffer->Info().extent.height), frame_buffers[i]);
 	}
 
-	GPoint points[] = { {vec3{ 0.3, 0.3,0.},vec3{1.,1.,1.}},
-					   {vec3{ 0.3,-0.3,0.},vec3{1.,1.,1.}},
-					   {vec3{-0.3,-0.3,0.},vec3{1.,1.,1.}},
-					   {vec3{-0.3, 0.3,0.},vec3{1.,1.,1.}}
+	GPoint points[] = { {vec3{ 0.3, 0.3,0.5},vec3{1.,1.,1.}},
+					   {vec3{ 0.3,-0.3,0.5},vec3{1.,1.,1.}},
+					   {vec3{-0.3,-0.3,0.5},vec3{1.,1.,1.}},
+					   {vec3{-0.3, 0.3,0.5},vec3{1.,1.,1.}}
 	};
 	
 	ptr<gvk::Buffer> buffer;
@@ -203,10 +210,11 @@ int main()
 		).Record([&]() {
 
 			float time = current_time() * 10.f;
-			mat3 rotate;
+		mat4 rotate{};
 			rotate.a00 = cos(time), rotate.a01 = sin(time), rotate.a02 = 0.f;
 			rotate.a10 = -sin(time), rotate.a11 = cos(time), rotate.a12 = 0.f;
 			rotate.a20 = 0, rotate.a21 = 0, rotate.a22 = 1.f;
+			rotate.a33 = 1;
 			rotation.Update(cmd_buffer, &rotate);
 
 			VkBuffer vbuffers[] = { buffer->GetBuffer() };

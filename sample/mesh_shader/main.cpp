@@ -2,6 +2,8 @@
 #include "timer.h"
 #include "gvk_math.h"
 
+#include <iostream>
+
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 
 using namespace gvk;
@@ -128,6 +130,7 @@ int main()
 		//it is handy when implementing frame in flight
 		require(context->CreateFence(VK_FENCE_CREATE_SIGNALED_BIT), fence[i]);
 	}
+
 	while (!window->ShouldClose())
 	{
 		uint32 current_frame_idx = context->CurrentFrameIndex();

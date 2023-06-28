@@ -1,6 +1,8 @@
 #include "gvk_pipeline.h"
 #include "gvk_context.h"
 
+#include <iostream>
+
 
 namespace gvk {
 
@@ -335,13 +337,14 @@ namespace gvk {
 
 		std::vector<SpvReflectInterfaceVariable*> vertex_input;
 		std::vector<VkVertexInputAttributeDescription> attributes;
-
+		
+		VkPipelineVertexInputStateCreateInfo vertex_input_state{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+		std::vector<VkVertexInputBindingDescription> bindings;
 
 		if (!mesh_shader_enabled) 
 		{
 			//input vertex attributes
 			//TODO : currently we don't support multiple vertex bindings
-			VkPipelineVertexInputStateCreateInfo vertex_input_state{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 			vertex_input_state.flags = 0;
 
 			if (auto v = info.vertex_shader->GetInputVariables(); v.has_value())
@@ -399,16 +402,18 @@ namespace gvk {
 			vertex_input_state.pVertexAttributeDescriptions = attributes.data();
 			vertex_input_state.vertexAttributeDescriptionCount = attributes.size();
 
+			bindings.push_back(binding);
+
 			//TODO : currently we only support 1 binding
-			if (!attributes.empty())
-			{
-				vertex_input_state.pVertexBindingDescriptions = &binding;
-				vertex_input_state.vertexBindingDescriptionCount = 1;
-			}
-			else
+			if (attributes.size() == 0)
 			{
 				vertex_input_state.pVertexAttributeDescriptions = NULL;
 				vertex_input_state.vertexBindingDescriptionCount = 0;
+			}
+			else
+			{
+				vertex_input_state.pVertexBindingDescriptions = bindings.data();
+				vertex_input_state.vertexBindingDescriptionCount = bindings.size();
 			}
 
 			vk_create_info.pVertexInputState = &vertex_input_state;
@@ -417,6 +422,7 @@ namespace gvk {
 		{
 			vk_create_info.pVertexInputState = NULL;
 		}
+
 
 		//shader stages
 		std::vector<VkPipelineShaderStageCreateInfo> shader_stage_infos;
@@ -447,6 +453,7 @@ namespace gvk {
 			return true;
 		};
 
+		// vertex and fragment shader will be ignored if mesh shader is enabled
 		if (!mesh_shader_enabled)
 		{
 			if (!create_shader_stage(info.vertex_shader))

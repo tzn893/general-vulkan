@@ -1,4 +1,5 @@
 #include "gvk_context.h"
+#include <iostream>
 using namespace gvk;
 
 struct GvkExpectStrEqualTo {
@@ -209,6 +210,17 @@ namespace gvk {
 
 		inst_create.pNext = nullptr;
 
+		VkDebugReportCallbackCreateInfoEXT debugReportCI{};
+		if (m_debugCallbackCreate)
+		{
+			debugReportCI.pfnCallback = info.custom_debug_callback == NULL ? debug_callback : info.custom_debug_callback;
+			debugReportCI.flags = m_debugReportFlags;
+			debugReportCI.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
+
+			debugReportCI.pNext = inst_create.pNext;
+			inst_create.pNext = &debugReportCI;
+		}
+
 		VkValidationFeaturesEXT  validation_features{};
 		if (!m_validationFeatureEnabled.empty() || !m_validationFeatureDisabled.empty())
 		{
@@ -226,17 +238,6 @@ namespace gvk {
 
 			validation_features.pNext = inst_create.pNext;
 			inst_create.pNext = &validation_features;
-		}
-
-		VkDebugReportCallbackCreateInfoEXT debugReportCI{};
-		if (m_debugCallbackCreate)
-		{
-			debugReportCI.pfnCallback = info.custom_debug_callback == NULL ? debug_callback : info.custom_debug_callback;
-			debugReportCI.flags = m_debugReportFlags;
-			debugReportCI.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-			
-			debugReportCI.pNext = inst_create.pNext;
-			inst_create.pNext = &debugReportCI;
 		}
 
 		if (vkCreateInstance(&inst_create,nullptr,&m_VkInstance) != VK_SUCCESS) {
@@ -574,8 +575,6 @@ namespace gvk {
 			dqc_idx++;
 		}
 
-		
-
 		VkDeviceCreateInfo device_create{};
 		device_create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		device_create.pNext = nullptr;
@@ -587,9 +586,9 @@ namespace gvk {
 		device_create.ppEnabledExtensionNames = create.required_extensions.data();
 		device_create.pEnabledFeatures = &create.required_features;
 
+		VkPhysicalDeviceFeatures2 features2{};
 		if (create.p_ext_features != nullptr)
 		{
-			VkPhysicalDeviceFeatures2 features2{};
 			features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 			features2.pNext = create.p_ext_features;
 			features2.features = create.required_features;
@@ -602,7 +601,6 @@ namespace gvk {
 			if (error != nullptr) *error = "gvk : fail to create device";
 			return false;
 		}
-
 
 		if (auto present_queue_idx = FindSuitableQueueIndex(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT
 			, 1.0f);present_queue_idx.has_value()) {
@@ -625,9 +623,9 @@ namespace gvk {
 		}
 
 #ifdef GVK_WINDOWS_PLATFORM
+		VkWin32SurfaceCreateInfoKHR win_surface{};
 		//create windows surface on windows platform
 		{
-			VkWin32SurfaceCreateInfoKHR win_surface{};
 			win_surface.hwnd = glfwGetWin32Window(m_Window->GetWindow());
 			//get instance handle of this application
 			win_surface.hinstance = GetModuleHandle(NULL);

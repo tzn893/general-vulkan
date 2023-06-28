@@ -1,8 +1,15 @@
 #include "gvk.h"
-#include "shader.h"
 
 #include "timer.h"
 #include "image.h"
+
+#include "gvk_shader_common.h"
+
+struct TriangleVertex
+{
+	vec2 pos;
+	vec2 uv;
+};
 
 #define require(expr,target) if(auto v = expr;v.has_value()) { target = v.value(); } else { gvk_assert(false);return -1; }
 
@@ -76,7 +83,6 @@ int main()
 	
 	GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, 0);
 	graphic_pipeline_create.rasterization_state.cullMode = VK_CULL_MODE_NONE;
-
 
 	ptr<gvk::Pipeline> graphic_pipeline;
 	require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);
@@ -283,12 +289,13 @@ int main()
 			float time = current_time();
 			push_constant_time.Update(cmd_buffer, &time);
 
-			mat3 rotation_mat;
+			mat4 rotation_mat{};
 			rotation_mat.a00 =  sin(time); rotation_mat.a10 = cos(time); rotation_mat.a20 = 0;
 			rotation_mat.a01 = -cos(time); rotation_mat.a11 = sin(time); rotation_mat.a21 = 0;
 			rotation_mat.a02 =  0; rotation_mat.a12 =  0; rotation_mat.a22 = 1;
-			push_constant_rotation.Update(cmd_buffer, &rotation_mat);
+			rotation_mat.a33 = 1;
 
+			push_constant_rotation.Update(cmd_buffer, &rotation_mat);
 
 			VkBuffer vbuffers[] = { buffer->GetBuffer() };
 			VkDeviceSize offsets[] = { 0 };

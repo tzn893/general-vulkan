@@ -1,6 +1,5 @@
 #version 450
 
-#include "shader.h"
 
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;

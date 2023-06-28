@@ -1,9 +1,6 @@
 #version 450
 
-#include "shader.h"
-
 layout(location = 0) in vec3 i_col;
-
 layout(location = 0) out vec4 o_col;
 
 

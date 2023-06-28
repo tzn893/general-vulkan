@@ -1,5 +1,11 @@
 #include "gvk.h"
-#include "shader.h"
+#include "gvk_shader_common.h"
+
+struct TriangleVertex
+{
+	vec2 pos;
+	vec2 uv;
+};
 
 #include "image.h"
 #include "timer.h"
@@ -384,10 +390,12 @@ int main()
 			float time = current_time();
 			push_constant_time.Update(cmd_buffer, &time);
 
-			mat3 rotation_mat;
+			mat4 rotation_mat{};
 			rotation_mat.a00 =  sin(time); rotation_mat.a10 = cos(time); rotation_mat.a20 = 0;
 			rotation_mat.a01 = -cos(time); rotation_mat.a11 = sin(time); rotation_mat.a21 = 0;
 			rotation_mat.a02 =  0; rotation_mat.a12 =  0; rotation_mat.a22 = 1;
+			rotation_mat.a33 = 1;
+
 			push_constant_rotation.Update(cmd_buffer, &rotation_mat);
 
 

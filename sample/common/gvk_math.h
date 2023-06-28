@@ -2,7 +2,7 @@
 
 #include <limits>
 #include <cmath>
-#include "shader/shader_common.h"
+#include "gvk_shader_common.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 

@@ -18,7 +18,7 @@ int main()
 	instance_create.AddInstanceExtension(GVK_INSTANCE_EXTENSION_SHADER_PRINT);
 	instance_create.AddLayer(GVK_LAYER_DEBUG);
 	instance_create.AddLayer(GVK_LAYER_FPS_MONITOR);
-	instance_create.custom_debug_callback = debug_callback_filtered;
+	// instance_create.custom_debug_callback = debug_callback_filtered;
 
 	context->InitializeInstance(instance_create, &error);
 

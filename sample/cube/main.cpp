@@ -1,5 +1,4 @@
 #include "gvk.h"
-#include "shader.h"
 #include "gvk_math.h"
 using namespace Math;
 
@@ -11,6 +10,16 @@ using namespace Math;
 using namespace gvk;
 
 int window_width = 600, window_height = 600;
+
+#include "gvk_shader_common.h"
+
+struct TriangleVertex
+{
+	vec3 pos;
+	vec3 color;
+	vec2 uv;
+};
+
 
 int main() 
 {

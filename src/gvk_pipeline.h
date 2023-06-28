@@ -1,7 +1,7 @@
 #pragma once
 #include "gvk_common.h"
 #include "gvk_shader.h"
-#include "shader/shader_common.h"
+#include "gvk_shader_common.h"
 #include <functional>
 
 namespace gvk {
