@@ -348,6 +348,11 @@ namespace gvk {
 		return m_Device;
 	}
 
+	VkPhysicalDevice Context::GetPhysicalDevice()
+	{
+		return m_PhyDevice;
+	}
+
 	gvk::View<ptr<gvk::Image>> Context::GetBackBuffers()
 	{
 		return View(m_BackBuffers);

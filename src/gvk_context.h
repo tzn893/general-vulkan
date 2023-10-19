@@ -367,6 +367,12 @@ namespace gvk
 		VkDevice					  GetDevice();
 
 		/// <summary>
+		/// Get the physical device of the context
+		/// </summary>
+		/// <returns> physical device </returns>
+		VkPhysicalDevice			  GetPhysicalDevice();
+
+		/// <summary>
 		/// get back buffers
 		/// </summary>
 		/// <returns>view of back buffer array</returns>
