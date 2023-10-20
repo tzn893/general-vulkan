@@ -168,6 +168,8 @@ namespace gvk {
 		/// <returns>return buffer size</returns>
 		uint64_t		GetSize();
 
+		opt<VkBufferView>    CreateBufferView(uint64_t size, uint64_t offset,VkFormat format = VK_FORMAT_UNDEFINED);
+
 		void			SetDebugName(const std::string& name);
 
 		~Buffer();

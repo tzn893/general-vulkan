@@ -107,6 +107,25 @@ namespace gvk {
 		return m_BufferSize;
 	}
 
+	opt<VkBufferView> Buffer::CreateBufferView(uint64_t size, uint64_t offset, VkFormat format)
+	{
+		VkBufferViewCreateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+		info.offset = offset;
+		info.range = size;
+		info.format = format;
+		info.flags = 0;
+		info.buffer = m_Buffer;
+
+		VkBufferView view;
+		if (vkCreateBufferView(m_Device,&info, NULL, &view) == VK_SUCCESS)
+		{
+			return view;
+		}
+
+		return std::nullopt;
+	}
+
 	void Buffer::SetDebugName(const std::string& name)
 	{
 		VkDebugMarkerObjectNameInfoEXT info{};
