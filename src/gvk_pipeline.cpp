@@ -42,13 +42,13 @@ namespace gvk {
 			}
 
 			// find largest descriptor set
-			uint32_t lastDescriptorSet = descriptor_layouts.size() - 1;
+			uint32_t lastDescriptorSet = descriptor_layouts.size();
 			for (auto set : sets)
 			{
-				lastDescriptorSet = lastDescriptorSet > set->set ? lastDescriptorSet : set->set;
+				lastDescriptorSet = lastDescriptorSet > (set->set + 1) ? lastDescriptorSet : (set->set + 1);
 			}
 			// fill the holes by dummy descriptor sets
-			descriptor_layouts.resize(lastDescriptorSet + 1, context.GetDummyDescriptorSetLayout());
+			descriptor_layouts.resize(lastDescriptorSet, context.GetDummyDescriptorSetLayout());
 
 			//collect descriptor set layout information
 			for (auto set : sets)
