@@ -13,6 +13,7 @@ namespace gvk {
 			layout_included.resize(hint.precluded_descriptor_layouts.size());
 		}
 
+
 		//descriptor set layouts
 		std::vector<VkDescriptorSetLayout> descriptor_layouts;
 		//a bit map check whether the precluded descriptor layouts is included to descriptor layouts for pipeline creation
@@ -40,6 +41,15 @@ namespace gvk {
 				return false;
 			}
 
+			// find largest descriptor set
+			uint32_t lastDescriptorSet = descriptor_layouts.size() - 1;
+			for (auto set : sets)
+			{
+				lastDescriptorSet = lastDescriptorSet > set->set ? lastDescriptorSet : set->set;
+			}
+			// fill the holes by dummy descriptor sets
+			descriptor_layouts.resize(lastDescriptorSet + 1, context.GetDummyDescriptorSetLayout());
+
 			//collect descriptor set layout information
 			for (auto set : sets)
 			{
@@ -53,7 +63,7 @@ namespace gvk {
 						//this layout is not included in layout list
 						if (!layout_included[i])
 						{
-							descriptor_layouts.push_back(layout->GetLayout());
+							descriptor_layouts[set->set] = layout->GetLayout();
 							layout_included[i] = true;
 							is_layout_precluded = true;
 							break;

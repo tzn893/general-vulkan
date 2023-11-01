@@ -391,6 +391,11 @@ namespace gvk {
 		vkDebugMarkerSetObjectNameEXT(m_Device, &info);
 	}
 
+	VkDescriptorSetLayout Context::GetDummyDescriptorSetLayout()
+	{
+		return m_DummyDescriptorSetLayout;
+	}
+
 	Context::~Context() {
 		m_Window = nullptr;
 		m_PresentQueue = nullptr;
@@ -415,6 +420,11 @@ namespace gvk {
 		if (m_Allocator != NULL) {
 			vmaDestroyAllocator(m_Allocator);
 		}
+		if (m_DummyDescriptorSetLayout != NULL)
+		{
+			vkDestroyDescriptorSetLayout(m_Device , m_DummyDescriptorSetLayout, NULL);
+		}
+
 		if (m_Device != NULL) {
 			vkDestroyDevice(m_Device, nullptr);
 		}
@@ -658,6 +668,15 @@ namespace gvk {
 
 		m_DeviceAddressable = addressable;
 		volkLoadDevice(m_Device);
+
+
+		VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
+		descSetLayoutCI.bindingCount = 0;
+		descSetLayoutCI.flags = 0;
+		descSetLayoutCI.pBindings = NULL;
+		descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+		vkCreateDescriptorSetLayout(m_Device, &descSetLayoutCI, NULL, &m_DummyDescriptorSetLayout);
 
 		return IntializeMemoryAllocation(addressable, m_AppInfo.apiVersion, error);
 	}

@@ -23,9 +23,9 @@ namespace gvk {
 		
 		VkShaderStageFlags							m_ShaderStages;
 		VkDescriptorSetLayout						m_Layout;
-		std::vector<gvk::ptr<gvk::Shader>>				m_Shader;
+		std::vector<gvk::ptr<gvk::Shader>>			m_Shader;
 		std::vector<SpvReflectDescriptorBinding*>	m_DescriptorSetBindings;
-		uint32_t										m_Set;
+		uint32_t									m_Set;
 		VkDevice									m_Device;
 	};
 

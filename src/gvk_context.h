@@ -382,6 +382,8 @@ namespace gvk
 		void						  SetDebugNameSampler(VkSampler sampler,const std::string& name);
 		void						  SetDebugNameCommandBuffer(VkCommandBuffer cmd,const std::string& name);
 
+		VkDescriptorSetLayout		  GetDummyDescriptorSetLayout();
+
 		~Context();
 	private:
 		
@@ -488,5 +490,6 @@ namespace gvk
 		opt<ptr<CommandQueue>> ConsumePrequiredQueue(uint32_t idx);
 		void		 OnCommandQueueDestroy(CommandQueue* queue);
 
+		VkDescriptorSetLayout m_DummyDescriptorSetLayout;
 	};
 }
