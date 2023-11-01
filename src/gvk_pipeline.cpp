@@ -77,7 +77,8 @@ namespace gvk {
 					//TODO: what happens if this operation fails? 
 					gvk_assert(opt_layout.has_value());
 					internal_layout.push_back(opt_layout.value());
-					descriptor_layouts.push_back(opt_layout.value()->GetLayout());
+
+					descriptor_layouts[set->set] = opt_layout.value()->GetLayout();
 				}
 			}
 
