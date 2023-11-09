@@ -48,7 +48,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags
 	}
 	else
 	{
-		printf("\n%s: %s\n", layer_prefix, message);
+		if (strstr(message, "DEBUG-PRINTF") != NULL)
+		{
+			std::string message_str = message;
+			std::vector<std::string> splited_messages = string_split(message_str, '|');
+			
+			std::string output_msg = "gvk message from shader:";
+			for (int i = 2;i < splited_messages.size(); i++)
+			{
+				output_msg += splited_messages[i];
+			}
+			printf("\n\033[0m\033[1;36m%s\033[0m\n", output_msg.c_str());
+
+			//printf("\n%s: %s\n", layer_prefix, message);
+		}
 	}
 	return VK_FALSE;
 }
