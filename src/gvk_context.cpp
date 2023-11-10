@@ -36,15 +36,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags
 {
 	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
 	{
-		printf("\n%s: %s\n", layer_prefix, message);
+		printf("%s: %s\n", layer_prefix, message);
 	}
 	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
 	{
-		printf("\n%s: %s\n", layer_prefix, message);
+		printf("%s: %s\n", layer_prefix, message);
 	}
 	else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
 	{
-		printf("\n%s: %s\n", layer_prefix, message);
+		printf("%s: %s\n", layer_prefix, message);
 	}
 	else
 	{
@@ -58,7 +58,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags
 			{
 				output_msg += splited_messages[i];
 			}
-			printf("\n\033[0m\033[1;36m%s\033[0m\n", output_msg.c_str());
+			printf("\033[0m\033[1;36m%s\033[0m\n", output_msg.c_str());
 
 			//printf("\n%s: %s\n", layer_prefix, message);
 		}
