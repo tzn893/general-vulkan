@@ -1088,7 +1088,14 @@ GvkGraphicsPipelineCreateInfo::GvkGraphicsPipelineCreateInfo(ptr<gvk::Shader> ve
 	const GvkGraphicsPipelineCreateInfo::BlendState* blend_states)
  :vertex_shader(vert),fragment_shader(frag),target_pass(render_pass),subpass_index(subpass_index) 
 {	
-	uint32 fragment_output_count = frag->GetOutputVariableCount();
+	gvk_assert(vert != nullptr);
+	
+	uint32 fragment_output_count = 0;
+	if (frag != nullptr)
+	{
+		fragment_output_count = frag->GetOutputVariableCount();
+	}
+
 	frame_buffer_blend_state.Resize(fragment_output_count);
 
 	if (blend_states == NULL && fragment_output_count != 0)
