@@ -309,6 +309,7 @@ namespace gvk {
 
 	opt<ptr<Pipeline>> Context::CreateGraphicsPipeline(const GvkGraphicsPipelineCreateInfo& info) {
  		bool mesh_shader_enabled = info.mesh_shader != nullptr;
+		bool fragment_shader_enabled = info.fragment_shader != nullptr;
 		
 		VkGraphicsPipelineCreateInfo vk_create_info{};
 		vk_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -494,10 +495,14 @@ namespace gvk {
 			}
 		}
 
-		if (!create_shader_stage(info.fragment_shader)) 
+		if (fragment_shader_enabled)
 		{
-			return std::nullopt;
+			if (!create_shader_stage(info.fragment_shader))
+			{
+				return std::nullopt;
+			}
 		}
+		
 
 		vk_create_info.pStages = shader_stage_infos.data();
 		vk_create_info.stageCount = shader_stage_infos.size();
@@ -533,9 +538,12 @@ namespace gvk {
 			}
 		}
 		
-		if (!descriptor_helper.CollectDescriptorLayoutInfo(info.fragment_shader))
+		if (fragment_shader_enabled)
 		{
-			return std::nullopt;
+			if (!descriptor_helper.CollectDescriptorLayoutInfo(info.fragment_shader))
+			{
+				return std::nullopt;
+			}
 		}
 
 		//Render passes
