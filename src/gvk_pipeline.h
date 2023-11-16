@@ -316,7 +316,7 @@ namespace gvk{
 		friend class Context;
 	public:
 		opt<ptr<RenderPass>>					GetRenderPass();
-		opt<ptr<DescriptorSetLayout>>			GetInternalLayout(uint32_t set,VkShaderStageFlagBits stage);
+		opt<ptr<DescriptorSetLayout>>			GetInternalLayout(uint32_t set,VkShaderStageFlagBits stage = (VkShaderStageFlagBits)0);
 
 		VkPipeline								GetPipeline();
 		VkPipelineLayout						GetPipelineLayout();

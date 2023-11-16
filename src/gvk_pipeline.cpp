@@ -15,7 +15,8 @@ namespace gvk {
 
 
 		//descriptor set layouts
-		std::vector<VkDescriptorSetLayout> descriptor_layouts;
+		std::vector<std::vector<ptr<Shader>>>	descriptor_layout_shaders;
+		std::vector<VkDescriptorSetLayout>		descriptor_layouts;
 		//a bit map check whether the precluded descriptor layouts is included to descriptor layouts for pipeline creation
 		std::vector<bool> layout_included;
 		std::vector<ptr<DescriptorSetLayout>> internal_layout;
@@ -49,6 +50,8 @@ namespace gvk {
 			}
 			// fill the holes by dummy descriptor sets
 			descriptor_layouts.resize(lastDescriptorSet, context.GetDummyDescriptorSetLayout());
+			descriptor_layout_shaders.resize(lastDescriptorSet, {});
+			internal_layout.resize(lastDescriptorSet, nullptr);
 
 			//collect descriptor set layout information
 			for (auto set : sets)
@@ -72,11 +75,18 @@ namespace gvk {
 				}
 				if (!is_layout_precluded)
 				{
+					if (!descriptor_layout_shaders[set->set].empty())
+					{
+						descriptor_layouts[set->set] = NULL;
+						internal_layout[set->set] = nullptr;
+					}
+					descriptor_layout_shaders[set->set].push_back(shader);
+
 					//this layout is not included in layout list create a new layout for this set
-					auto opt_layout = context.CreateDescriptorSetLayout({ shader }, set->set, nullptr);
+					auto opt_layout = context.CreateDescriptorSetLayout(descriptor_layout_shaders[set->set], set->set, nullptr);
 					//TODO: what happens if this operation fails? 
 					gvk_assert(opt_layout.has_value());
-					internal_layout.push_back(opt_layout.value());
+					internal_layout[set->set] = opt_layout.value();
 
 					descriptor_layouts[set->set] = opt_layout.value()->GetLayout();
 				}
@@ -132,6 +142,19 @@ namespace gvk {
 
 
 			return true;
+		}
+
+		std::vector<ptr<DescriptorSetLayout>> GetRearrangedInternalLayouts()
+		{
+			std::vector<ptr<DescriptorSetLayout>> rearranged_internal_layout;
+			for (auto layout : internal_layout)
+			{
+				if (layout != nullptr)
+				{
+					rearranged_internal_layout.push_back(layout);
+				}
+			}
+			return rearranged_internal_layout;
 		}
 	};
 
@@ -588,7 +611,7 @@ namespace gvk {
 		}
 		
 		return ptr<Pipeline>(new Pipeline(pipeline,pipeline_layout,
-			descriptor_helper.internal_layout,descriptor_helper.push_constant_table,
+			descriptor_helper.GetRearrangedInternalLayouts(), descriptor_helper.push_constant_table,
 			target_pass,subpass_index,VK_PIPELINE_BIND_POINT_GRAPHICS,m_Device));
 	}
 
@@ -636,7 +659,7 @@ namespace gvk {
 		}
 
 		return ptr<Pipeline>(new Pipeline(compute_pipeline, layout,
-			helper.internal_layout, helper.push_constant_table,
+			helper.GetRearrangedInternalLayouts(), helper.push_constant_table,
 			nullptr,0,VK_PIPELINE_BIND_POINT_COMPUTE, m_Device));
 	}
 
