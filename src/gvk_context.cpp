@@ -624,6 +624,7 @@ namespace gvk {
 
 			device_create.pEnabledFeatures = nullptr;
 		}
+		//device_create.pNext = create.p_ext_features;
 
 		if (vkCreateDevice(m_PhyDevice, &device_create, nullptr, &m_Device) != VK_SUCCESS) {
 			if (error != nullptr) *error = "gvk : fail to create device";
@@ -1157,8 +1158,8 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 			memset(&mesh_features, 0, sizeof(mesh_features));
 
 			mesh_features_added = VK_TRUE;
-			*pp_next_feature = &mesh_features;
-			pp_next_feature = &mesh_features.pNext;
+			mesh_features.pNext = p_ext_features;
+			p_ext_features = &mesh_features;
 			mesh_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
 		}
 		mesh_features.taskShader = VK_TRUE;
@@ -1166,6 +1167,34 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		break;
 	case GVK_DEVICE_EXTENSION_FILL_NON_SOLID:
 		required_features.fillModeNonSolid = VK_TRUE;
+		break;
+	case GVK_DEVICE_EXTENSION_ATOMIC_FLOAT:
+		AddNotRepeatedElement(required_extensions, VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+		if (!atomic_float_enabled)
+		{
+			memset(&atomicFloatFeatures, 0, sizeof(atomicFloatFeatures));
+
+			atomic_float_enabled = VK_TRUE;
+			atomicFloatFeatures.pNext = p_ext_features;
+			p_ext_features = &atomicFloatFeatures;
+			atomicFloatFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+		}
+
+		atomic_float_enabled = true;
+		atomicFloatFeatures.shaderBufferFloat32AtomicAdd = true;
+		atomicFloatFeatures.shaderBufferFloat32Atomics = true;
+		atomicFloatFeatures.shaderBufferFloat32Atomics = true;
+		atomicFloatFeatures.shaderBufferFloat32AtomicAdd = true;
+		// atomicFloatFeatures.shaderBufferFloat64Atomics;
+		// atomicFloatFeatures.shaderBufferFloat64AtomicAdd;
+		atomicFloatFeatures.shaderSharedFloat32Atomics = true;
+		atomicFloatFeatures.shaderSharedFloat32AtomicAdd = true;
+		// atomicFloatFeatures.shaderSharedFloat64Atomics;
+		// atomicFloatFeatures.shaderSharedFloat64AtomicAdd;
+		atomicFloatFeatures.shaderImageFloat32Atomics = true;
+		atomicFloatFeatures.shaderImageFloat32AtomicAdd = true;
+		atomicFloatFeatures.sparseImageFloat32Atomics = true;
+		atomicFloatFeatures.sparseImageFloat32AtomicAdd = true;
 		break;
 	default:
 		gvk_assert(false);

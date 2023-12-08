@@ -24,6 +24,7 @@ int main()
 
 	GvkDeviceCreateInfo device_create;
 	device_create.AddDeviceExtension(GVK_DEVICE_EXTENSION_SWAP_CHAIN);
+	device_create.AddDeviceExtension(GVK_DEVICE_EXTENSION_ATOMIC_FLOAT);
 	device_create.RequireQueue(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_TRANSFER_BIT, 1);
 
 	context->InitializeDevice(device_create, &error);

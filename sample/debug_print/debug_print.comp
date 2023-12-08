@@ -1,14 +1,27 @@
 #version 450
 #extension GL_EXT_debug_printf : enable
+#extension GL_EXT_shader_atomic_float : enable
 
 layout (local_size_x = 2,local_size_y = 2,local_size_z = 2) in;
 
+shared float num;
+
 void main()
 {
-    // 
+    num = 0;
+    barrier();
+
     if(gl_GlobalInvocationID.x == 101 && gl_GlobalInvocationID.y == 101 && gl_GlobalInvocationID.z == 2)
     {
         debugPrintfEXT("from global compute grid %d %d %d local grid %d %d %d\n",gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, gl_GlobalInvocationID.z,
             gl_LocalInvocationID.x, gl_LocalInvocationID.y, gl_LocalInvocationID.z);
     }
+
+    atomicAdd(num, 1.5);
+
+    if(gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.y == 0 && gl_GlobalInvocationID.z == 0)
+    {
+        debugPrintfEXT("atomic add result %f", num);
+    }
+
 }

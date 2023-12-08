@@ -37,6 +37,7 @@ enum GVK_DEVICE_EXTENSION
 	GVK_DEVICE_EXTENSION_GEOMETRY_SHADER,
 	GVK_DEVICE_EXTENSION_DEBUG_MARKER,
 	GVK_DEVICE_EXTENSION_MESH_SHADER,
+	GVK_DEVICE_EXTENSION_ATOMIC_FLOAT,
 	
 	GVK_DEVICE_EXTENSION_COUNT
 };
@@ -57,10 +58,12 @@ struct GvkDeviceCreateInfo
 	std::vector<const char*> required_extensions;
 	VkPhysicalDeviceFeatures required_features;
 	void* p_ext_features = NULL;
-	void** pp_next_feature = &p_ext_features;
 
 	VkPhysicalDeviceMeshShaderFeaturesEXT mesh_features;
 	bool mesh_features_added = false;
+
+	VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures;
+	bool atomic_float_enabled = false;
 	
 	GvkDeviceCreateInfo& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
