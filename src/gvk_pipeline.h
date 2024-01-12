@@ -120,6 +120,8 @@ struct GvkGraphicsPipelineCreateInfo {
 
 	struct FrameBufferBlendState {
 		FrameBufferBlendState();
+		FrameBufferBlendState(const FrameBufferBlendState& state);
+		FrameBufferBlendState& operator=(const FrameBufferBlendState& state);
 
 		/// <summary>
 		/// Resize the blend states to frame buffer count of blend states

@@ -92,7 +92,7 @@ namespace gvk {
 
 		if (options.target_env != "")
 		{
-			cmd += "- -target-env=vulkan" + options.target_env;
+			cmd += "--target-env=vulkan" + options.target_env;
 		}
 		if (options.target_spv != "")
 		{

@@ -994,6 +994,25 @@ GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState()
 	create_info.pAttachments = NULL;
 }
 
+
+GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState(const FrameBufferBlendState& state)
+{
+	frame_buffer_states = state.frame_buffer_states;
+	create_info = state.create_info;
+
+	create_info.pAttachments = frame_buffer_states.data();
+}
+
+GvkGraphicsPipelineCreateInfo::FrameBufferBlendState& GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::operator=(const FrameBufferBlendState& state)
+{
+	// TODO: 在此处插入 return 语句
+	frame_buffer_states = state.frame_buffer_states;
+	create_info = state.create_info;
+
+	create_info.pAttachments = frame_buffer_states.data();
+	return *this;
+}
+
 void GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::Resize(uint32 frame_buffer_count)
 {
 	//create a default blend state for every resized states
