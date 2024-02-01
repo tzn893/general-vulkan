@@ -52,6 +52,20 @@ layout(binding = eObjDescs, scalar) buffer ObjDesc_ { ObjDesc i[]; } objDesc;
 layout(binding = eTextures) uniform sampler2D[] textureSamplers;
 // clang-format on
 
+struct B
+{
+  float a;
+  float b;
+  vec2  c;
+  mat4  d;
+};
+
+layout(binding = 10) uniform SomeBuffer
+{
+   B b;
+   mat4 c;
+} someBuffer;
+
 
 void main()
 {
@@ -63,7 +77,7 @@ void main()
   int               matIndex = matIndices.i[gl_PrimitiveID];
   WaveFrontMaterial mat      = materials.m[matIndex];
 
-  vec3 N = normalize(i_worldNrm);
+  vec3 N = normalize(i_worldNrm) * someBuffer.b.a;
 
   // Vector toward light
   vec3  L;

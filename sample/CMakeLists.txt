@@ -5,6 +5,8 @@ file(GLOB COMMON_FILE_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/common/*.h   )
 
 message("found common files : ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER}")
 
+file(GLOB RT_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/raytracer/*.cpp)
+
 file(GLOB WINDOW_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/window/*.cpp)
 file(GLOB SHADER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/shader/*.cpp)
 
@@ -40,6 +42,7 @@ add_executable(cube ${CUBE_SOURCE} ${CUBE_HEADER} ${COMMON_FILE_SOURCE} ${COMMON
 add_executable(multi-subpass ${M_SUBPASS_SOURCE} ${M_SUBPASS_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 add_executable(mesh-shader ${MESH_SHADER_SOURCE} ${MESH_SHADER_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 add_executable(debug-print ${DEBUG_PRINT_SOURCE} ${DEBUG_PRINT_HEADER} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
+add_executable(rt ${RT_SOURCE} ${COMMON_FILE_SOURCE} ${COMMON_FILE_HEADER})
 
 target_link_libraries(window-test gvk glm)
 
@@ -76,3 +79,7 @@ target_include_directories(mesh-shader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common
 add_compile_definitions(DEBUG_PRINT_SHADER_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/debug_print")
 target_link_libraries(debug-print gvk glm)
 target_include_directories(debug-print PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common)
+
+add_compile_definitions(RT_SHADER_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}/raytracer")
+target_link_libraries(rt gvk glm)
+target_include_directories(rt PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/common)

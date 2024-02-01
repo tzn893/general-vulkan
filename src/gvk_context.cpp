@@ -182,6 +182,21 @@ namespace gvk {
 		return true;
 	}
 
+	bool Context::DeviceExtensionEnabled(const char* deviceExtension)
+	{
+		bool extensionEnabled = false;
+		for (auto ext : m_RequiredDeviceExtensions)
+		{
+			if (strcmp(ext, deviceExtension) == 0)
+			{
+				extensionEnabled = true;
+				break;
+			}
+		}
+
+		return extensionEnabled;
+	}
+
 	bool Context::InitializeInstance(GvkInstanceCreateInfo& info,std::string* error)
 	{
 		for (auto layer : info.required_layers) 
@@ -459,6 +474,8 @@ namespace gvk {
 		gvk_assert(m_Device == NULL);
 		gvk_assert(m_VkInstance != NULL);
 
+		m_RequiredDeviceExtensions = create.required_extensions;
+
 		GvkDeviceCreateInfo::QueueRequireInfo require_present_queue{};
 		require_present_queue.count = 1;
 		require_present_queue.flags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
@@ -673,7 +690,7 @@ namespace gvk {
 		bool addressable = false;
 		for (auto extension : create.required_extensions)
 		{
-			if (strcmp(extension,"VK_KHR_buffer_device_address") == 0) 
+			if (strcmp(extension, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0)
 			{
 				addressable = true;
 				break;
@@ -1129,6 +1146,18 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::RequireQueue(VkFlags queue_flags, uint
 	return *this;
 }
 
+template<typename T>
+static void EnableFeature(GvkDeviceCreateInfo* info, GvkDeviceCreateInfo::Feature<T>& feature)
+{
+	if (!feature.enabled)
+	{
+		memset(&feature.feature, 0, sizeof(feature.feature));
+		feature.enabled = true;
+		feature.feature.pNext = info->p_ext_features;
+		info->p_ext_features = &feature.feature;
+	}
+}
+
 GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSION extension)
 {
 	switch (extension) {
@@ -1139,12 +1168,42 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		AddNotRepeatedElement(required_extensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 		AddNotRepeatedElement(required_extensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 		AddNotRepeatedElement(required_extensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+
+		/*
+		if (!rt_pipeline_enabled)
+		{
+			memset(&rtPipelineFeatures, 0, sizeof(rtPipelineFeatures));
+			rt_pipeline_enabled = true;
+			rtPipelineFeatures.pNext = p_ext_features;
+			p_ext_features = &rtPipelineFeatures;
+		}
+		*/
+		
+		EnableFeature(this, rtPipeline);
+		rtPipeline.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+		rtPipeline.feature.rayTracingPipeline = 1;
+		/*
+		if (!as_enabled)
+		{
+			memset(&accelFeatures, 0, sizeof(accelFeatures));
+			as_enabled = true;
+			accelFeatures.pNext = p_ext_features;
+			p_ext_features = &accelFeatures;
+		}
+		*/
+
+		EnableFeature(this, accelStruct);
+		accelStruct.feature.accelerationStructure = 1;
+		accelStruct.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 		break;
 	case GVK_DEVICE_EXTENSION_SWAP_CHAIN:
 		AddNotRepeatedElement(required_extensions, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		break;
 	case GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS:
-		AddNotRepeatedElement(required_extensions, "VK_KHR_buffer_device_address");
+		AddNotRepeatedElement(required_extensions, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+		EnableFeature(this, deviceAddr);
+		deviceAddr.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
+		deviceAddr.feature.bufferDeviceAddress = 1;
 		break;
 	case GVK_DEVICE_EXTENSION_GEOMETRY_SHADER:
 		required_features.geometryShader = VK_TRUE;
@@ -1153,6 +1212,7 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		AddNotRepeatedElement(required_extensions, VK_EXT_MESH_SHADER_EXTENSION_NAME);
 		AddNotRepeatedElement(required_extensions, VK_KHR_SPIRV_1_4_EXTENSION_NAME);
 		AddNotRepeatedElement(required_extensions, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+		/*
 		if (!mesh_features_added)
 		{
 			memset(&mesh_features, 0, sizeof(mesh_features));
@@ -1162,14 +1222,18 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 			p_ext_features = &mesh_features;
 			mesh_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
 		}
-		mesh_features.taskShader = VK_TRUE;
-		mesh_features.meshShader = VK_TRUE;
+		*/
+		EnableFeature(this, mesh);
+		mesh.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+		mesh.feature.taskShader = VK_TRUE;
+		mesh.feature.meshShader = VK_TRUE;
 		break;
 	case GVK_DEVICE_EXTENSION_FILL_NON_SOLID:
 		required_features.fillModeNonSolid = VK_TRUE;
 		break;
 	case GVK_DEVICE_EXTENSION_ATOMIC_FLOAT:
 		AddNotRepeatedElement(required_extensions, VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+		/*
 		if (!atomic_float_enabled)
 		{
 			memset(&atomicFloatFeatures, 0, sizeof(atomicFloatFeatures));
@@ -1179,22 +1243,32 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 			p_ext_features = &atomicFloatFeatures;
 			atomicFloatFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
 		}
-
+		
 		atomic_float_enabled = true;
-		atomicFloatFeatures.shaderBufferFloat32AtomicAdd = true;
-		atomicFloatFeatures.shaderBufferFloat32Atomics = true;
-		atomicFloatFeatures.shaderBufferFloat32Atomics = true;
-		atomicFloatFeatures.shaderBufferFloat32AtomicAdd = true;
-		// atomicFloatFeatures.shaderBufferFloat64Atomics;
-		// atomicFloatFeatures.shaderBufferFloat64AtomicAdd;
-		atomicFloatFeatures.shaderSharedFloat32Atomics = true;
-		atomicFloatFeatures.shaderSharedFloat32AtomicAdd = true;
-		// atomicFloatFeatures.shaderSharedFloat64Atomics;
-		// atomicFloatFeatures.shaderSharedFloat64AtomicAdd;
-		atomicFloatFeatures.shaderImageFloat32Atomics = true;
-		atomicFloatFeatures.shaderImageFloat32AtomicAdd = true;
-		atomicFloatFeatures.sparseImageFloat32Atomics = true;
-		atomicFloatFeatures.sparseImageFloat32AtomicAdd = true;
+		*/
+		EnableFeature(this, atomicFloat);
+		atomicFloat.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT;
+		atomicFloat.feature.shaderBufferFloat32AtomicAdd = true;
+		atomicFloat.feature.shaderBufferFloat32Atomics = true;
+		atomicFloat.feature.shaderBufferFloat32Atomics = true;
+		atomicFloat.feature.shaderBufferFloat32AtomicAdd = true;
+		// atomicFloat.feature.shaderBufferFloat64Atomics;
+		// atomicFloat.feature.shaderBufferFloat64AtomicAdd;
+		atomicFloat.feature.shaderSharedFloat32Atomics = true;
+		atomicFloat.feature.shaderSharedFloat32AtomicAdd = true;
+		// atomicFloat.feature.shaderSharedFloat64Atomics;
+		// atomicFloat.feature.shaderSharedFloat64AtomicAdd;
+		atomicFloat.feature.shaderImageFloat32Atomics = true;
+		atomicFloat.feature.shaderImageFloat32AtomicAdd = true;
+		atomicFloat.feature.sparseImageFloat32Atomics = true;
+		atomicFloat.feature.sparseImageFloat32AtomicAdd = true;
+		break;
+	case GVK_DEVICE_EXTENSION_INT64:
+		AddNotRepeatedElement(required_extensions, VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
+		EnableFeature(this, atomicInt64);
+		atomicInt64.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
+		atomicInt64.feature.shaderBufferInt64Atomics = 1;
+		atomicInt64.feature.shaderSharedInt64Atomics = 1;
 		break;
 	default:
 		gvk_assert(false);

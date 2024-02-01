@@ -71,13 +71,18 @@ void main()
     uint idx = gl_GlobalInvocationID.z;
 	vec4 offset = vec4(coord.x, 0, coord.y, 0.0);
 
-	SetMeshOutputsEXT(3, 1);
 	mat4 mvp = pc.mvp;
 
     uint v0 = 0;
     uint v1 = 1;
     uint v2 = 2;
 
+    if(gl_GlobalInvocationID.x % 2 == 0)
+    {
+        return;
+    }
+
+	SetMeshOutputsEXT(3, 1);
 
     if(idx == 0)
     {

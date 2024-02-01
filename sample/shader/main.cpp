@@ -8,6 +8,23 @@ void PrintVariable(const SpvReflectInterfaceVariable* variable)
 	std::cout << "name:" << variable->name << ", location:" << variable->location << " , format:" << variable->format << std::endl;
 }
 
+void PrintMember(const SpvReflectTypeDescription* member, const std::string& prefix)
+{
+	for (uint32_t i = 0;i < member->member_count; i++)
+	{
+		if ((member->members[i].type_flags & SPV_REFLECT_TYPE_FLAG_STRUCT) == SPV_REFLECT_TYPE_FLAG_STRUCT)
+		{
+			PrintMember(member->members + i, prefix + '.' + (member->type_name == NULL ? "" : member->type_name));
+		}
+		else
+		{
+			auto a = member->members[i];
+			std::cout << "name:" << prefix + '.' + (member->members[i].struct_member_name == NULL ? "" : member->members[i].struct_member_name)
+				<< " size:" << member->members[i].traits.numeric.scalar.width << member->members[i].traits.numeric.scalar.signedness << std::endl;
+		}
+	}
+}
+
 void TestShader(const char* shader_file)
 {
 	const char* include_dirs[] = { TEST_SHADER_DIRECTORY };
@@ -38,6 +55,7 @@ void TestShader(const char* shader_file)
 		std::cout << "\tset=" << set->set << " binding count=" << set->binding_count << std::endl;
 		for (gvk::uint32 i = 0; i < set->binding_count; i++) {
 			std::cout << "\t\tbinding=" << set->bindings[i]->binding << " name=" << set->bindings[i]->name << " type=" << set->bindings[i]->resource_type << std::endl;
+			PrintMember(set->bindings[i]->type_description, "");
 		}
 	}
 

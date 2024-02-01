@@ -5,6 +5,8 @@
 #include <functional>
 
 namespace gvk {
+	class TopAccelerationStructure;
+	
 	//descriptor set layout is created from 
 	class DescriptorSetLayout {
 		friend class Context;
@@ -267,7 +269,7 @@ namespace gvk{
 		~DescriptorAllocator();
 
 	private:
-		DescriptorAllocator(VkDevice device);
+		DescriptorAllocator(VkDevice device, bool rtSupport);
 
 		opt<VkDescriptorPool>	CreatePool();
 
@@ -328,10 +330,9 @@ namespace gvk{
 		opt<GvkPushConstant>					GetPushConstantRange(const char* name);
 
 		void									SetDebugName(const std::string& name);
-
-
-		~Pipeline();
-	private:
+		
+		virtual ~Pipeline();
+	protected:
 		Pipeline(VkPipeline pipeline, VkPipelineLayout layout, const std::vector<ptr<DescriptorSetLayout>>& descriptor_set_layouts, const std::unordered_map<std::string,VkPushConstantRange>& push_constants, 
 			ptr<RenderPass> render_pass,uint32_t subpass_index,VkPipelineBindPoint bind_point,VkDevice device);
 
@@ -371,10 +372,21 @@ struct GvkDescriptorSetImageWrite
 	VkImageLayout	layout;
 };
 
+struct GvkDescriptorSetAccelerationStructureWrite
+{
+	VkAccelerationStructureKHR as;
+	VkWriteDescriptorSetAccelerationStructureKHR writeAs;
+	uint32_t binding;
+	VkDescriptorSet set;
+};
+
+
 struct GvkDescriptorSetWrite
 {
 	std::vector<GvkDescriptorSetBufferWrite> buffers;
 	std::vector<GvkDescriptorSetImageWrite>  images;
+	std::vector<GvkDescriptorSetAccelerationStructureWrite>  as;
+
 
 	GvkDescriptorSetWrite& ImageWrite(gvk::ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32_t binding, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32_t array_index = 0);
 	GvkDescriptorSetWrite& BufferWrite(gvk::ptr<gvk::DescriptorSet> set,VkDescriptorType descriptor_type, uint32_t binding, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t array_index = 0);
@@ -382,6 +394,8 @@ struct GvkDescriptorSetWrite
 	GvkDescriptorSetWrite& ImageWrite(gvk::ptr<gvk::DescriptorSet> set, const char* name, VkSampler sampler, VkImageView image_view, VkImageLayout layout, uint32_t array_index = 0);
 	GvkDescriptorSetWrite& BufferWrite(gvk::ptr<gvk::DescriptorSet> set,const char* name, VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size, uint32_t array_index = 0);
 
+	GvkDescriptorSetWrite& AccelerationStructureWrite(gvk::ptr<gvk::DescriptorSet> set, uint32_t binding, VkAccelerationStructureKHR tlas);
+	
 	void				   Emit(VkDevice device);
 };
 

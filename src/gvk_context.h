@@ -5,6 +5,7 @@
 #include "gvk_resource.h"
 #include "gvk_pipeline.h"
 #include "gvk_shader.h"
+#include "gvk_raytracing.h"
 
 struct GVK_VERSION {
 	uint32_t v0, v1, v2;
@@ -38,6 +39,7 @@ enum GVK_DEVICE_EXTENSION
 	GVK_DEVICE_EXTENSION_DEBUG_MARKER,
 	GVK_DEVICE_EXTENSION_MESH_SHADER,
 	GVK_DEVICE_EXTENSION_ATOMIC_FLOAT,
+	GVK_DEVICE_EXTENSION_INT64,
 	
 	GVK_DEVICE_EXTENSION_COUNT
 };
@@ -59,12 +61,36 @@ struct GvkDeviceCreateInfo
 	VkPhysicalDeviceFeatures required_features;
 	void* p_ext_features = NULL;
 
+	/*
 	VkPhysicalDeviceMeshShaderFeaturesEXT mesh_features;
 	bool mesh_features_added = false;
 
 	VkPhysicalDeviceShaderAtomicFloatFeaturesEXT atomicFloatFeatures;
 	bool atomic_float_enabled = false;
-	
+
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeatures;
+	bool rt_pipeline_enabled = false;
+
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelFeatures;
+	bool as_enabled = false;
+
+	VkPhysicalDeviceShaderAtomicInt64Features atomicInt64Features;
+	bool atomic_int64_enabled = false;
+	*/
+	template<typename T>
+	struct Feature
+	{
+		T feature{};
+		bool enabled = false;
+	};
+
+	Feature<VkPhysicalDeviceMeshShaderFeaturesEXT> mesh;
+	Feature<VkPhysicalDeviceShaderAtomicFloatFeaturesEXT> atomicFloat;
+	Feature<VkPhysicalDeviceRayTracingPipelineFeaturesKHR> rtPipeline;
+	Feature<VkPhysicalDeviceAccelerationStructureFeaturesKHR> accelStruct;
+	Feature<VkPhysicalDeviceShaderAtomicInt64Features> atomicInt64;
+	Feature<VkPhysicalDeviceBufferDeviceAddressFeaturesKHR> deviceAddr;
+
 	GvkDeviceCreateInfo& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
 	GvkDeviceCreateInfo() :required_features{} {}
@@ -301,6 +327,17 @@ namespace gvk
 		/// <param name="create_info">the create info of the compute pipeline</param>
 		/// <returns>created compute pipeline</returns>
 		opt<ptr<Pipeline>>	CreateComputePipeline(const GvkComputePipelineCreateInfo& create_info);
+
+		/// <summary>
+		/// Create a raytracing pipeline
+		/// </summary>
+		/// <param name="create_info">the create info of the raytracing pipeline</param>
+		/// <returns>created raytracing pipeline</returns>
+		opt<ptr<RaytracingPipeline>> CreateRaytracingPipeline(const RayTracingPieplineCreateInfo& create_info);
+
+
+		opt<ptr<TopAccelerationStructure>> CreateTopAccelerationStructure(View<GvkTopAccelerationStructureInstance> info);
+		opt<ptr<BottomAccelerationStructure>> CreateBottomAccelerationStructure(View<GvkBottomAccelerationStructureGeometryTriangles> info);
 		
 		/// <summary>
 		/// Create a render pass
@@ -395,6 +432,8 @@ namespace gvk
 		bool AddInstanceExtension(GVK_INSTANCE_EXTENSION);
 		bool AddInstanceLayer(GVK_LAYER layer);
 
+		bool DeviceExtensionEnabled(const char* deviceExtension);
+
 		struct QueueInfo {
 			VkFlags flags;
 			float   priority;
@@ -445,7 +484,8 @@ namespace gvk
 		};
 
 		Context();
-
+		
+		std::vector<const char*> m_RequiredDeviceExtensions;
 		std::vector<const char*> m_RequiredInstanceExtensions;
 		std::vector<const char*> m_RequiredInstanceLayers;
 		std::unordered_set<std::string> m_SupportedInstanceExtensions;

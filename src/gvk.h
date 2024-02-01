@@ -5,3 +5,4 @@
 #include "gvk_shader.h"
 #include "gvk_window.h"
 #include "gvk_context.h"
+#include "gvk_raytracing.h"

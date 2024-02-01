@@ -1,5 +1,6 @@
 #include "gvk_pipeline.h"
 #include "gvk_context.h"
+#include "gvk_raytracing.h"
 
 #include <iostream>
 
@@ -663,6 +664,234 @@ namespace gvk {
 			nullptr,0,VK_PIPELINE_BIND_POINT_COMPUTE, m_Device));
 	}
 
+	extern VkPhysicalDeviceRayTracingPipelinePropertiesKHR& GetRayTracingProperties(gvk::Context* ctx);
+
+	opt<ptr<RaytracingPipeline>> Context::CreateRaytracingPipeline(const RayTracingPieplineCreateInfo& create_info)
+	{
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
+		std::unordered_map<uint64_t, uint32_t> shaderStageMap;
+
+		auto CIShaderGroups = create_info.GetShaderGroups();
+
+		auto getShaderStageID = [&](ptr<Shader> shader, VkShaderStageFlagBits stage)
+		{
+			uint64_t shaderAddress = (uint64_t)shader.get();
+			// x64 system
+			if (shaderStageMap.count(shaderAddress))
+			{
+				return shaderStageMap[shaderAddress];
+			}
+			VkPipelineShaderStageCreateInfo shaderStageCI{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+			shaderStageCI.pName = shader->GetEntryPointName();
+			auto shaderModule = shader->GetShaderModule();
+			shaderStageCI.module = shaderModule.value();
+			shaderStageCI.stage = stage;
+			uint32_t id = shaderStages.size();
+			shaderStages.push_back(shaderStageCI);
+			shaderStageMap[shaderAddress] = id;
+
+			return id;
+		};
+
+		GvkDescriptorLayoutHint nullHint;
+		DescriptorLayoutInfoHelper helper(nullHint, *this);
+
+		uint32_t rayGenCount = 0;
+		uint32_t missCount = 0;
+		uint32_t hitCount = 0;
+		uint32_t callableCount = 0;
+
+		for (auto& group : CIShaderGroups)
+		{
+			VkRayTracingShaderGroupCreateInfoKHR vkGroup{ VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR };
+			vkGroup.anyHitShader = { VK_SHADER_UNUSED_KHR };
+			vkGroup.generalShader = { VK_SHADER_UNUSED_KHR };
+			vkGroup.closestHitShader = { VK_SHADER_UNUSED_KHR };
+			vkGroup.intersectionShader = { VK_SHADER_UNUSED_KHR };
+
+			if (group.stages == VK_SHADER_STAGE_RAYGEN_BIT_KHR)
+			{
+				vkGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR; 
+				vkGroup.generalShader = getShaderStageID(group.rayGeneration, VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+				rayGenCount++;
+
+				if (!helper.CollectDescriptorLayoutInfo(group.rayGeneration))
+				{
+					return std::nullopt;
+				}
+			}
+			else if (group.stages == VK_SHADER_STAGE_MISS_BIT_KHR)
+			{
+				vkGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+				vkGroup.generalShader = getShaderStageID(group.rayMiss, VK_SHADER_STAGE_MISS_BIT_KHR);
+				missCount++;
+
+				if (!helper.CollectDescriptorLayoutInfo(group.rayMiss))
+				{
+					return std::nullopt;
+				}
+			}
+			else 
+			{
+				// TODO support VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR 
+				vkGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+				hitCount++;
+
+				if ((group.stages & VK_SHADER_STAGE_ANY_HIT_BIT_KHR) == VK_SHADER_STAGE_ANY_HIT_BIT_KHR)
+				{
+					vkGroup.anyHitShader = getShaderStageID(group.rayIntersection.anyHit, VK_SHADER_STAGE_ANY_HIT_BIT_KHR);
+					if (!helper.CollectDescriptorLayoutInfo(group.rayIntersection.anyHit))
+					{
+						return std::nullopt;
+					}
+				}
+				if ((group.stages & VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) == VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR)
+				{
+					vkGroup.closestHitShader = getShaderStageID(group.rayIntersection.closestHit, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+					if (!helper.CollectDescriptorLayoutInfo(group.rayIntersection.closestHit))
+					{
+						return std::nullopt;
+					}
+				}
+				if ((group.stages & VK_SHADER_STAGE_INTERSECTION_BIT_KHR) == VK_SHADER_STAGE_INTERSECTION_BIT_KHR)
+				{
+					vkGroup.intersectionShader = getShaderStageID(group.rayIntersection.intersection, VK_SHADER_STAGE_INTERSECTION_BIT_KHR);
+					if (!helper.CollectDescriptorLayoutInfo(group.rayIntersection.intersection))
+					{
+						return std::nullopt;
+					}
+				}
+
+			}
+			shaderGroups.push_back(vkGroup);
+		}
+		gvk_assert(rayGenCount == 1);
+
+		uint32_t shaderHandleCount = rayGenCount + missCount + hitCount + callableCount;
+
+		VkPipelineLayoutCreateInfo pipeline_layout_create{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+		pipeline_layout_create.setLayoutCount = helper.descriptor_layouts.size();
+		pipeline_layout_create.pSetLayouts = helper.descriptor_layouts.data();
+		pipeline_layout_create.pushConstantRangeCount = helper.push_constant_ranges.size();
+		pipeline_layout_create.pPushConstantRanges = helper.push_constant_ranges.data();
+		pipeline_layout_create.flags = 0;
+
+		VkPipelineLayout layout;
+		if (vkCreatePipelineLayout(m_Device, &pipeline_layout_create, nullptr, &layout) != VK_SUCCESS)
+		{
+			return std::nullopt;
+		}
+
+		VkRayTracingPipelineCreateInfoKHR rayTracingCI{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
+		rayTracingCI.groupCount = shaderGroups.size();
+		rayTracingCI.pGroups = shaderGroups.data();
+		rayTracingCI.pStages = shaderStages.data();
+		rayTracingCI.stageCount = shaderStages.size();
+		rayTracingCI.maxPipelineRayRecursionDepth = create_info.maxRecursiveDepth;
+		rayTracingCI.layout = layout;
+
+		VkPipeline pipeline;
+		vkCreateRayTracingPipelinesKHR(m_Device, {}, {}, 1, &rayTracingCI, NULL, &pipeline);
+
+
+		// TODO create STB table
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR& props = GetRayTracingProperties(this);
+		uint32_t handleSize = props.shaderGroupHandleSize;
+		uint32_t handleSizeAligned = gvk::Align(handleSize, props.shaderGroupHandleAlignment);
+
+		VkStridedDeviceAddressRegionKHR rayGen;
+		VkStridedDeviceAddressRegionKHR miss;
+		VkStridedDeviceAddressRegionKHR hit;
+		VkStridedDeviceAddressRegionKHR callable;
+
+		// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysKHR.html
+		// VUID-vkCmdTraceRaysKHR-size-04023 states
+		// The size member of pRayGenShaderBindingTable must be equal to its stride member
+		rayGen.stride = gvk::Align(handleSizeAligned, props.shaderGroupBaseAlignment);
+		rayGen.size = rayGen.stride;
+
+		miss.stride = handleSizeAligned;
+		miss.size = handleSizeAligned * missCount;
+		uint32_t missTotalStride = gvk::Align(handleSizeAligned* missCount, props.shaderGroupBaseAlignment);
+
+		hit.stride = handleSizeAligned;
+		hit.size = handleSizeAligned * hitCount; 
+		uint32_t hitTotalStride = gvk::Align(handleSizeAligned * hitCount, props.shaderGroupBaseAlignment);
+
+		callable.stride = 0;
+		callable.size = 0;
+
+		std::vector<uint8_t> shaderData(shaderHandleCount* handleSize);
+		vkGetRayTracingShaderGroupHandlesKHR(m_Device, pipeline, 0, shaderHandleCount, shaderHandleCount* handleSize, shaderData.data());
+
+		VkDeviceSize sbtSize = rayGen.size + missTotalStride + hitTotalStride;
+		ptr<gvk::Buffer> SBTStaging = CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT , sbtSize, GVK_HOST_WRITE_SEQUENTIAL).value();
+		ptr<gvk::Buffer> SBT = CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+			| VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR, sbtSize, GVK_HOST_WRITE_NONE).value();
+
+		VkDeviceAddress           sbtAddress = SBT->GetAddress();
+
+		rayGen.deviceAddress = sbtAddress;
+		miss.deviceAddress = sbtAddress + rayGen.size;
+		hit.deviceAddress = sbtAddress + rayGen.size + missTotalStride;
+		callable.deviceAddress = sbtAddress + rayGen.size + missTotalStride;
+
+		uint32_t pSBTGroupOffset = 0;
+		uint32_t pShaderDataOffset = 0;
+
+		// copy ray gen shader
+		SBTStaging->Write(shaderData.data() + pShaderDataOffset, pSBTGroupOffset, handleSize);
+		pShaderDataOffset += handleSize;
+		pSBTGroupOffset += rayGen.stride;
+
+		// copy miss shaders
+		uint32_t missOffset = pSBTGroupOffset;
+		for (uint32_t i = 0;i < missCount;i++)
+		{
+			SBTStaging->Write(shaderData.data() + pShaderDataOffset, missOffset, handleSize);
+			missOffset += miss.stride;
+			pShaderDataOffset += handleSize;
+		}
+		pSBTGroupOffset += missTotalStride;
+
+		// copy hit shaders
+		uint32_t hitOffset = pSBTGroupOffset;
+		for (uint32_t i = 0; i < hitCount; i++)
+		{
+			SBTStaging->Write(shaderData.data() + pShaderDataOffset, hitOffset, handleSize);
+			hitOffset += hit.stride;
+			pShaderDataOffset += handleSize;
+		}
+		pSBTGroupOffset += hitTotalStride;
+
+		
+
+		m_PresentQueue->SubmitTemporalCommand([&](VkCommandBuffer cmd)
+			{
+				VkBufferCopy copy;
+				copy.dstOffset = 0;
+				copy.srcOffset = 0;
+				copy.size = sbtSize;
+				vkCmdCopyBuffer(cmd, SBTStaging->GetBuffer(), SBT->GetBuffer(), 1, &copy);
+			},SemaphoreInfo::None(), NULL, true
+		);
+		
+
+		auto rtPipeline = ptr<RaytracingPipeline>(new RaytracingPipeline(pipeline, layout,
+			helper.GetRearrangedInternalLayouts(), helper.push_constant_table,
+			nullptr, 0, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_Device, create_info));
+		rtPipeline->m_SBT = SBT;
+		SBTStaging = nullptr;
+		rtPipeline->hit = hit;
+		rtPipeline->miss = miss;
+		rtPipeline->rayGen = rayGen;
+		rtPipeline->callable = callable;
+
+		return rtPipeline;
+	}
+
+	
 	opt<ptr<gvk::RenderPass>> Context::CreateRenderPass(const GvkRenderPassCreateInfo& info)
 	{
 		gvk_assert(m_Device != NULL);
@@ -854,7 +1083,21 @@ namespace gvk {
 		auto bindings = layout->GetDescriptorSetBindings();
 		for (uint32 i = 0;i < bindings.size();i++) 
 		{
-			m_PoolSize[bindings[i]->descriptor_type].descriptorCount += bindings[i]->count;
+			VkDescriptorPoolSize* poolSize = nullptr;
+			for (uint32_t j = 0;j < m_PoolSize.size();j++)
+			{
+				if (bindings[i]->descriptor_type == m_PoolSize[j].type)
+				{
+					poolSize = &m_PoolSize[j];
+					break;
+				}
+			}
+
+			if (poolSize == nullptr)
+			{
+				return std::nullopt;
+			}
+			poolSize->descriptorCount += bindings[i]->count;
 		}
 		m_MaxSetCount++;
 
@@ -888,7 +1131,8 @@ namespace gvk {
 
 	ptr<gvk::DescriptorAllocator> Context::CreateDescriptorAllocator()
 	{
-		return ptr<gvk::DescriptorAllocator>(new DescriptorAllocator(m_Device));
+
+		return ptr<gvk::DescriptorAllocator>(new DescriptorAllocator(m_Device, DeviceExtensionEnabled(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME)));
 	}
 
 	DescriptorAllocator::~DescriptorAllocator()
@@ -916,11 +1160,22 @@ namespace gvk {
 		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT		, pool_size / 2}
 	};
 
-	DescriptorAllocator::DescriptorAllocator(VkDevice device)
+	static std::vector<VkDescriptorPoolSize> g_rt_pool_sizes =
+	{
+		{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, pool_size / 4}
+	};
+
+	DescriptorAllocator::DescriptorAllocator(VkDevice device, bool rtSupport)
 		:m_Device(device) 
 	{
+		std::vector<VkDescriptorPoolSize> poolSize = g_pool_sizes;
+		if (rtSupport)
+		{
+			poolSize.insert(poolSize.begin(), g_rt_pool_sizes.begin(), g_rt_pool_sizes.end());
+		}
+
 		m_MaxSetCount = pool_size / 4;
-		m_PoolSize = g_pool_sizes;
+		m_PoolSize = poolSize;
 		auto pool = CreatePool();
 		gvk_assert(pool.has_value());
 		m_CurrentDescriptorPool = pool.value();
@@ -1293,6 +1548,20 @@ GvkDescriptorSetWrite& GvkDescriptorSetWrite::BufferWrite(ptr<gvk::DescriptorSet
 	return *this;
 }
 
+GvkDescriptorSetWrite& GvkDescriptorSetWrite::AccelerationStructureWrite(gvk::ptr<gvk::DescriptorSet> set, uint32_t binding, VkAccelerationStructureKHR tlas)
+{
+	GvkDescriptorSetAccelerationStructureWrite asWrite;
+	asWrite.writeAs.accelerationStructureCount = 1;
+	asWrite.writeAs.pNext = 0;
+	asWrite.writeAs.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+	asWrite.as = tlas;
+	asWrite.binding = binding;
+	asWrite.set = set->GetDescriptorSet();
+	
+	as.push_back(asWrite);
+	return *this;
+}
+
 void GvkDescriptorSetWrite::Emit(VkDevice device)
 {
 	std::vector<VkWriteDescriptorSet> writes;
@@ -1343,6 +1612,24 @@ void GvkDescriptorSetWrite::Emit(VkDevice device)
 		image_infos[i] = image_info;
 
 		write.pImageInfo = image_infos.data() + i;
+
+		writes.push_back(write);
+	}
+
+
+	for (uint32_t i = 0; i < as.size(); i++)
+	{
+		as[i].writeAs.pAccelerationStructures = &as[i].as;
+		as[i].writeAs.accelerationStructureCount = 1;
+		
+		VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+		write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+		//TODO : currently we only support write one buffer at a time
+		write.descriptorCount = 1;
+		write.dstArrayElement = 0;
+		write.dstBinding = as[i].binding;
+		write.dstSet = as[i].set;
+		write.pNext = &as[i].writeAs;
 
 		writes.push_back(write);
 	}

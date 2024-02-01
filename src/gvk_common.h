@@ -69,6 +69,11 @@ namespace gvk {
 			return end - start;
 		}
 
+		const T* GetData()
+		{
+			return data;
+		}
+
 	private:
 		const T* data;
 		uint32 start, end;
@@ -393,6 +398,11 @@ namespace gvk {
 			}
 		}
 		return elems;
+	}
+
+	inline uint32_t Align(uint32_t target, uint32_t alignment) 
+	{
+		return ((target + alignment - 1) / alignment) * alignment;
 	}
 }
 

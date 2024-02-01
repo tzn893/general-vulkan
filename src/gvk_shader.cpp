@@ -92,7 +92,7 @@ namespace gvk {
 
 		if (options.target_env != "")
 		{
-			cmd += "--target-env=vulkan" + options.target_env;
+			cmd += " --target-env=vulkan" + options.target_env;
 		}
 		if (options.target_spv != "")
 		{
@@ -132,7 +132,7 @@ namespace gvk {
 		
 		ShaderCompileOptions options;
 		options.stage = ext.substr(1, ext.size() - 1);
-		if (options.stage == "rhit" || ext == "rgen" || ext == "rmiss")
+		if (options.stage == "rchit" || options.stage == "rgen" || options.stage == "rmiss")
 		{
 			options.target_env = "1.2";
 		}
