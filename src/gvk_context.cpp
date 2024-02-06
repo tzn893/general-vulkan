@@ -1164,7 +1164,9 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 	case GVK_DEVICE_EXTENSION_DEBUG_MARKER:
 		AddNotRepeatedElement(required_extensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 		break;
-	case GVK_DEVICE_EXTENSION_RAYTRACING: 
+	case GVK_DEVICE_EXTENSION_RAYTRACING:
+		AddDeviceExtension(GVK_DEVICE_EXTENSION_BUFFER_DEVICE_ADDRESS);
+
 		AddNotRepeatedElement(required_extensions, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 		AddNotRepeatedElement(required_extensions, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 		AddNotRepeatedElement(required_extensions, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);

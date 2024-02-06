@@ -55,7 +55,7 @@ namespace gvk
 		return groupIdx;
 	}
 
-	uint32_t gvk::RayTracingPieplineCreateInfo::AddRayIntersection(ptr<Shader> intersection, ptr<Shader> anyHit, ptr<Shader> closestHit)
+	uint32_t gvk::RayTracingPieplineCreateInfo::AddRayIntersectionShader(ptr<Shader> intersection, ptr<Shader> anyHit, ptr<Shader> closestHit)
 	{
 		VkShaderStageFlags shaderStages{};
 		ShaderGroup group;

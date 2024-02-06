@@ -70,40 +70,10 @@ int main()
 		include_directorys, gvk_count_of(include_directorys),
 		&error);
 
-	/*
-	GvkRenderPassCreateInfo render_pass_create;
-	uint32 color_attachment = render_pass_create.AddAttachment(0, back_buffer_format,VK_SAMPLE_COUNT_1_BIT,
-		VK_ATTACHMENT_LOAD_OP_CLEAR,VK_ATTACHMENT_STORE_OP_STORE,
-		VK_ATTACHMENT_LOAD_OP_DONT_CARE,VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-	render_pass_create.AddSubpass(0, VK_PIPELINE_BIND_POINT_GRAPHICS);
-	render_pass_create.AddSubpassColorAttachment(0, color_attachment);
-
-	render_pass_create.AddSubpassDependency(VK_SUBPASS_EXTERNAL, 0,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-	ptr<gvk::RenderPass> render_pass;
-	if (auto v = context->CreateRenderPass(render_pass_create); v.has_value())
-	{
-		render_pass = v.value();
-	}
-	else 
-	{
-		return 0;
-	}
-	*/
-
-	//GvkGraphicsPipelineCreateInfo graphic_pipeline_create(vert.value(), frag.value(), render_pass, 0);
-	//graphic_pipeline_create.rasterization_state.cullMode = VK_CULL_MODE_NONE;
-
-	//ptr<gvk::Pipeline> graphic_pipeline;
-	//require(context->CreateGraphicsPipeline(graphic_pipeline_create), graphic_pipeline);
-
 	ptr<gvk::RaytracingPipeline> rt_pipeline;
 	RayTracingPieplineCreateInfo rtPipelineCI;
 	rtPipelineCI.AddRayGenerationShader(rgen.value());
-	rtPipelineCI.AddRayIntersection(nullptr, nullptr, rchit.value());
+	rtPipelineCI.AddRayIntersectionShader(nullptr, nullptr, rchit.value());
 	rtPipelineCI.AddRayMissShader(rmiss.value());
 	rtPipelineCI.SetMaxRecursiveDepth(1);
 
@@ -172,7 +142,6 @@ int main()
 
 	tlas = context->CreateTopAccelerationStructure(View<GvkTopAccelerationStructureInstance>(&instance, 0, 1)).value();
 	
-
 	ptr<gvk::CommandQueue> queue;
 	ptr<gvk::CommandPool>  pool;
 	std::vector<VkCommandBuffer>	cmd_buffers(back_buffer_count);
@@ -256,19 +225,15 @@ int main()
 		{
 			return 0;
 		}
-
-
 		
 		GvkBarrier(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR).
 			ImageBarrier(back_buffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
 				0, VK_ACCESS_SHADER_WRITE_BIT).Emit(cmd_buffer);
 		
-		
 		GvkDescriptorSetBindingUpdate(cmd_buffer, rt_pipeline)
 		.BindDescriptorSet(descriptor_set[image_index])
 		.Update();
 
-		//body of recording commands
 		rt_pipeline->TraceRay(cmd_buffer, 600, 600, 1);
 		
 		GvkBarrier(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT).

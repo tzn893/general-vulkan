@@ -39,7 +39,7 @@ namespace gvk
 		std::vector<ShaderGroup> GetShaderGroups() const;
 		uint32_t AddRayGenerationShader(ptr<Shader> rayGeneration);
 		uint32_t AddRayMissShader(ptr<Shader> rayMiss);
-		uint32_t AddRayIntersection(ptr<Shader> intersection, ptr<Shader> anyHit, ptr<Shader> closestHit);
+		uint32_t AddRayIntersectionShader(ptr<Shader> intersection, ptr<Shader> anyHit, ptr<Shader> closestHit);
 		void SetMaxRecursiveDepth(uint32_t depth);
 	};
 
