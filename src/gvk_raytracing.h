@@ -50,7 +50,7 @@ namespace gvk
 		ptr<Buffer>	vertexBuffer;
 		size_t vertexStride;
 		uint32_t vertexPositionAttributeOffset;
-		uint32_t maxVertexCount;
+		uint32_t maxVertex;
 
 		ptr<Buffer> indiceBuffer;
 		VkIndexType indiceType;

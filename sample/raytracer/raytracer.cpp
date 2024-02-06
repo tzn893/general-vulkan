@@ -126,13 +126,13 @@ int main()
 	triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 	triangles.vertexPositionAttributeOffset = sizeof(vec3);
 	triangles.vertexStride = sizeof(TriangleVertex);
+	
 
 	triangles.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 	triangles.range.firstVertex = 0;
 	triangles.range.primitiveCount = 2;
 	triangles.range.primitiveOffset = 0;
 	triangles.range.transformOffset = 0;
-	triangles.vertexStride = sizeof(TriangleVertex);
 
 	blas = context->CreateBottomAccelerationStructure(View<GvkBottomAccelerationStructureGeometryTriangles>(&triangles,0,1)).value();
 

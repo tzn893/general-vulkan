@@ -251,7 +251,7 @@ namespace gvk
 			vkTriangleGeom.vertexStride = tri.vertexStride;
 			uint32_t vertexMemoryOffset = tri.vertexPositionAttributeOffset;
 			vkTriangleGeom.vertexData.deviceAddress = tri.vertexBuffer->GetAddress() + vertexMemoryOffset;
-			vkTriangleGeom.maxVertex = tri.maxVertexCount;
+			vkTriangleGeom.maxVertex = tri.maxVertex;
 
 
 			VkAccelerationStructureGeometryKHR geom{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
