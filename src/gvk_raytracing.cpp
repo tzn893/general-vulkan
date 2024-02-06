@@ -240,19 +240,18 @@ namespace gvk
 		{
 			const GvkBottomAccelerationStructureGeometryTriangles& tri = bottomASInfo[i];
 			VkAccelerationStructureGeometryTrianglesDataKHR vkTriangleGeom{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR};
-			uint32_t indiceMemoryOffset = (tri.indiceType == VK_INDEX_TYPE_UINT16 ? 2 : 4) * tri.indiceStart;
 
 			if (tri.indiceType != VK_INDEX_TYPE_NONE_KHR)
 			{
-				vkTriangleGeom.indexData.deviceAddress = tri.indiceBuffer->GetAddress() + indiceMemoryOffset;
+				vkTriangleGeom.indexData.deviceAddress = tri.indiceBuffer->GetAddress();
 			}
 			vkTriangleGeom.indexType = tri.indiceType;
 
 			vkTriangleGeom.vertexFormat = tri.vertexFormat;
 			vkTriangleGeom.vertexStride = tri.vertexStride;
-			uint32_t vertexMemoryOffset = tri.vertexPositionAttributeOffset + tri.vertexStart * tri.vertexStride;
+			uint32_t vertexMemoryOffset = tri.vertexPositionAttributeOffset;
 			vkTriangleGeom.vertexData.deviceAddress = tri.vertexBuffer->GetAddress() + vertexMemoryOffset;
-			vkTriangleGeom.maxVertex = tri.vertexCount + tri.vertexStart;
+			vkTriangleGeom.maxVertex = tri.maxVertexCount;
 
 
 			VkAccelerationStructureGeometryKHR geom{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
