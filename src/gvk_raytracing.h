@@ -49,10 +49,13 @@ namespace gvk
 		VkFormat vertexFormat;
 		ptr<Buffer>	vertexBuffer;
 		size_t vertexStride;
-		uint32_t maxVertexCount;
+		uint32_t vertexCount;
+		uint32_t vertexPositionAttributeOffset;
+		uint32_t vertexStart;
 
 		ptr<Buffer> indiceBuffer;
 		VkIndexType indiceType;
+		uint32_t    indiceStart;
 		VkGeometryFlagsKHR flags;
 
 		VkAccelerationStructureBuildRangeInfoKHR range;

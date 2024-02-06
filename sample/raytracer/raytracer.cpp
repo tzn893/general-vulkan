@@ -7,8 +7,8 @@
 
 struct TriangleVertex
 {
-	vec3 pos;
 	vec3 color;
+	vec3 pos;
 };
 
 struct ObjDesc
@@ -82,10 +82,10 @@ int main()
 
 	TriangleVertex vertices[] =
 	{
-		{{ 100, 100, 100},{1.0f, 0.0f, 0.0f}},
-		{{ 100,-100, 100},{0.0f, 1.0f, 0.0f}},
-		{{-100, 100, 100},{0.0f, 0.0f, 1.0f}},
-		{{-100,-100, 100},{1.0f, 1.0f, 1.0f}}
+		{{1.0f, 0.0f, 0.0f}, { 100, 100, 100}},
+		{{0.0f, 1.0f, 0.0f}, { 100,-100, 100}},
+		{{0.0f, 0.0f, 1.0f}, {-100, 100, 100}},
+		{{1.0f, 1.0f, 1.0f}, {-100,-100, 100}}
 	};
 
 	uint32_t indices[] =
@@ -121,9 +121,15 @@ int main()
 	GvkBottomAccelerationStructureGeometryTriangles triangles;
 	triangles.indiceBuffer = indBuffer;
 	triangles.indiceType = VK_INDEX_TYPE_UINT32;
+	triangles.indiceStart = 0;
+
 	triangles.vertexBuffer = vertBuffer;
 	triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-	triangles.maxVertexCount = 3;
+	triangles.vertexCount = 4;
+	triangles.vertexPositionAttributeOffset = sizeof(vec3);
+	triangles.vertexStart = 0;
+	triangles.vertexStride = sizeof(TriangleVertex);
+
 	triangles.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
 	triangles.range.firstVertex = 0;
 	triangles.range.primitiveCount = 2;

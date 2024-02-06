@@ -6,8 +6,8 @@
 
 struct Vertex
 {
-	vec3 pos;
 	vec3 color;
+	vec3 pos;
 };
 
 
