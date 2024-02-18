@@ -56,7 +56,14 @@ namespace gvk
 		VkIndexType indiceType;
 		VkGeometryFlagsKHR flags;
 
-		VkAccelerationStructureBuildRangeInfoKHR range;
+		//VkAccelerationStructureBuildRangeInfoKHR range;
+		uint32_t indexOffset;
+		uint32_t indexCount;
+		uint32_t transformOffset;
+		/// <summary>
+		/// index of vertex will add firstVertexIndexOffset while building
+		/// </summary>
+		uint32_t firstVertexIndexOffset;
 	};
 
 	class BottomAccelerationStructure

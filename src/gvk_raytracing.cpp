@@ -231,6 +231,26 @@ namespace gvk
 		return std::make_shared<TopAccelerationStructure>(this, accelS, topAsInfo.GetData(), topAsInfo.size(), accelStructBuffer);
 	}
 
+	static uint32_t GetIndexTypeSize(VkIndexType type)
+	{
+
+		if (type == VK_INDEX_TYPE_UINT16)
+		{
+			return sizeof(uint16_t);
+		}
+		else if (type == VK_INDEX_TYPE_UINT32)
+		{
+			return sizeof(uint32_t);
+		}
+		else if (type == VK_INDEX_TYPE_UINT8_EXT)
+		{
+			return sizeof(uint8_t);
+		}
+
+		// this branch shouldn't be reached
+		gvk_assert(false);
+	}
+
 	opt<ptr<BottomAccelerationStructure>> Context::CreateBottomAccelerationStructure(View<GvkBottomAccelerationStructureGeometryTriangles> bottomASInfo)
 	{
 		std::vector<VkAccelerationStructureBuildRangeInfoKHR> geomRanges(bottomASInfo.size());
@@ -240,6 +260,9 @@ namespace gvk
 		{
 			const GvkBottomAccelerationStructureGeometryTriangles& tri = bottomASInfo[i];
 			VkAccelerationStructureGeometryTrianglesDataKHR vkTriangleGeom{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR};
+
+			gvk_assert(tri.indexCount % 3 == 0);
+			gvk_assert(tri.indexOffset % 3 == 0);
 
 			if (tri.indiceType != VK_INDEX_TYPE_NONE_KHR)
 			{
@@ -259,8 +282,16 @@ namespace gvk
 			geom.geometry.triangles = vkTriangleGeom;
 			geom.flags = tri.flags;
 
+			VkAccelerationStructureBuildRangeInfoKHR range;
+			range.firstVertex = tri.firstVertexIndexOffset;
+			range.primitiveCount = tri.indexCount / 3;
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAccelerationStructureBuildRangeInfoKHR.html
+			// primitiveOffset defines an offset in bytes into the memory where primitive data is defined.
+			range.primitiveOffset = tri.indexOffset * GetIndexTypeSize(tri.indiceType);
+			range.transformOffset = tri.transformOffset;
+
 			geoms[i] = geom;
-			geomRanges[i] = tri.range;
+			geomRanges[i] = range;
 		}
 
 
@@ -274,7 +305,7 @@ namespace gvk
 		std::vector<uint32_t> maxPrimitiveCounts(bottomASInfo.size());
 		for (uint32_t i = 0;i < bottomASInfo.size();i++)
 		{
-			maxPrimitiveCounts[i] = bottomASInfo[i].range.primitiveCount;
+			maxPrimitiveCounts[i] = bottomASInfo[i].indexCount / 3;
 		}
 
 		vkGetAccelerationStructureBuildSizesKHR(m_Device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
