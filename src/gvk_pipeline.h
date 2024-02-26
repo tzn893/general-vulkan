@@ -18,10 +18,14 @@ namespace gvk {
 
 		VkShaderStageFlags		GetShaderStageBits();
 
+		uint32_t				GetMaxBindlessDescriptorSetCount();
+		bool					IsBindless();
+
 		~DescriptorSetLayout();
 	private:
 		DescriptorSetLayout(VkDescriptorSetLayout layout,const std::vector<gvk::ptr<gvk::Shader>>& shaders,
-			const std::vector<SpvReflectDescriptorBinding*>& descriptor_set_bindings,uint32_t sets,VkDevice device);
+			const std::vector<SpvReflectDescriptorBinding*>& descriptor_set_bindings,uint32_t sets,VkDevice device,
+			uint32_t maxBindlessBindingCount, bool isBindless);
 		
 		VkShaderStageFlags							m_ShaderStages;
 		VkDescriptorSetLayout						m_Layout;
@@ -29,6 +33,9 @@ namespace gvk {
 		std::vector<SpvReflectDescriptorBinding*>	m_DescriptorSetBindings;
 		uint32_t									m_Set;
 		VkDevice									m_Device;
+
+		uint32_t									m_MaxBindlessBindingCount;
+		bool										m_IsBindless;
 	};
 
 	class RenderPassInlineContent 
@@ -147,6 +154,8 @@ struct GvkGraphicsPipelineCreateInfo {
 		InputAssembly();
 	} input_assembly_state;
 
+	uint32_t	max_bindless_binding_count = 1024;
+
 	/// <summary>
 	/// constructor of GvkGraphicsPipelineCreateInfo
 	/// </summary>
@@ -171,6 +180,7 @@ struct GvkComputePipelineCreateInfo
 	gvk::ptr<gvk::Shader>		shader;
 
 	GvkDescriptorLayoutHint		descriptor_layuot_hint;
+	uint32_t					max_bindless_binding_count = 1024;
 };
 
 struct GvkPipelineCIInitializer
@@ -270,19 +280,25 @@ namespace gvk{
 
 	private:
 		DescriptorAllocator(VkDevice device, bool rtSupport);
+		void OnBindlessDescriptorSetDestroy(VkDescriptorSet set);
+
+		opt<ptr<DescriptorSet>> AllocateBindless(ptr<DescriptorSetLayout> layout);
 
 		opt<VkDescriptorPool>	CreatePool();
 
 		//TODO : release the descriptor pools that don't used any more
 		std::vector<VkDescriptorPool> m_UsedDescriptorPool;
 		VkDescriptorPool			  m_CurrentDescriptorPool;
-
 		//	this allocator is self-adaptive, will change the pool size
 		//	according to the last pool
 		std::vector<VkDescriptorPoolSize> m_PoolSize;
 
-		uint32_t							  m_MaxSetCount;
-		VkDevice						  m_Device;
+
+		std::vector<VkDescriptorPool> m_AllocatedBindlessPool;
+		std::vector<VkDescriptorSet>  m_AllocatedBindlessSet;
+
+		uint32_t					  m_MaxSetCount;
+		VkDevice					  m_Device;
 	};
 
 	class DescriptorSet 
@@ -308,11 +324,13 @@ namespace gvk{
 		~DescriptorSet();
 
 	private:
-		DescriptorSet(VkDevice device,VkDescriptorSet set,ptr<DescriptorSetLayout> layout);
+		// DescriptorSet(VkDevice device,VkDescriptorSet set,ptr<DescriptorSetLayout> layout);
+		DescriptorSet(VkDevice device, VkDescriptorSet set, ptr<DescriptorSetLayout> layout, DescriptorAllocator* alloc);
 
 		VkDevice							m_Device;
 		VkDescriptorSet						m_Set;
 		ptr<DescriptorSetLayout>			m_Layout;
+		DescriptorAllocator*				m_Alloc;
 	};
 
 

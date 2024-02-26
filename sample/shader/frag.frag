@@ -60,12 +60,6 @@ struct B
   mat4  d;
 };
 
-layout(binding = 10) uniform SomeBuffer
-{
-   B b;
-   mat4 c;
-} someBuffer;
-
 
 void main()
 {
@@ -77,7 +71,7 @@ void main()
   int               matIndex = matIndices.i[gl_PrimitiveID];
   WaveFrontMaterial mat      = materials.m[matIndex];
 
-  vec3 N = normalize(i_worldNrm) * someBuffer.b.a;
+  vec3 N = normalize(i_worldNrm);
 
   // Vector toward light
   vec3  L;

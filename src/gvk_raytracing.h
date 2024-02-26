@@ -33,7 +33,7 @@ namespace gvk
 		std::vector<ShaderGroup> rayMissShaderGroup;
 		std::vector<ShaderGroup> rayHitShaderGroup;
 
-
+		uint32_t				 maxBindlessBindingCount = 1024;
 		uint32_t				 maxRecursiveDepth = 5;
 
 		std::vector<ShaderGroup> GetShaderGroups() const;

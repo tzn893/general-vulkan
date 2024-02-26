@@ -40,6 +40,7 @@ enum GVK_DEVICE_EXTENSION
 	GVK_DEVICE_EXTENSION_MESH_SHADER,
 	GVK_DEVICE_EXTENSION_ATOMIC_FLOAT,
 	GVK_DEVICE_EXTENSION_INT64,
+	GVK_DEVICE_EXTENSION_BINDLESS_IMAGE,
 	
 	GVK_DEVICE_EXTENSION_COUNT
 };
@@ -90,6 +91,7 @@ struct GvkDeviceCreateInfo
 	Feature<VkPhysicalDeviceAccelerationStructureFeaturesKHR> accelStruct;
 	Feature<VkPhysicalDeviceShaderAtomicInt64Features> atomicInt64;
 	Feature<VkPhysicalDeviceBufferDeviceAddressFeaturesKHR> deviceAddr;
+	Feature<VkPhysicalDeviceDescriptorIndexingFeaturesEXT> descriptorIndexingFeatures;
 
 	GvkDeviceCreateInfo& AddDeviceExtension(GVK_DEVICE_EXTENSION extension);
 
@@ -354,7 +356,7 @@ namespace gvk
 		/// <param name="target_binding">the target set slot to create descriptor set</param>
 		/// <returns>created descriptor set layout</returns>
 		opt<ptr<DescriptorSetLayout>> CreateDescriptorSetLayout(const std::vector<ptr<Shader>>& target_shaders,
-			uint32_t target_set,std::string* error);
+			uint32_t target_set,std::string* error, uint32_t max_bindless_descriptor_cnt);
 
 		/// <summary>
 		/// Create a descriptor allocator

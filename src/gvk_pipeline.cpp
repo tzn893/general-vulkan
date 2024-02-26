@@ -9,11 +9,12 @@ namespace gvk {
 
 	struct DescriptorLayoutInfoHelper
 	{
-		DescriptorLayoutInfoHelper(const GvkDescriptorLayoutHint& hint,Context& context) 
+		DescriptorLayoutInfoHelper(const GvkDescriptorLayoutHint& hint,Context& context, uint32_t maxBindlessBindingCount) 
 		:context(context),hint(hint) {
 			layout_included.resize(hint.precluded_descriptor_layouts.size());
 		}
 
+		uint32_t maxBindlessBindingCount;
 
 		//descriptor set layouts
 		std::vector<std::vector<ptr<Shader>>>	descriptor_layout_shaders;
@@ -84,7 +85,7 @@ namespace gvk {
 					descriptor_layout_shaders[set->set].push_back(shader);
 
 					//this layout is not included in layout list create a new layout for this set
-					auto opt_layout = context.CreateDescriptorSetLayout(descriptor_layout_shaders[set->set], set->set, nullptr);
+					auto opt_layout = context.CreateDescriptorSetLayout(descriptor_layout_shaders[set->set], set->set, nullptr, maxBindlessBindingCount);
 					//TODO: what happens if this operation fails? 
 					gvk_assert(opt_layout.has_value());
 					internal_layout[set->set] = opt_layout.value();
@@ -161,8 +162,10 @@ namespace gvk {
 
 	
 	DescriptorSetLayout::DescriptorSetLayout(VkDescriptorSetLayout layout, const std::vector<ptr<gvk::Shader>>& shaders,
-		const std::vector<SpvReflectDescriptorBinding*>& descriptor_set_bindings, uint32 sets,VkDevice device):
+		const std::vector<SpvReflectDescriptorBinding*>& descriptor_set_bindings, uint32 sets,VkDevice device,
+		uint32_t maxBindlessBindingCount, bool isBindless):
 	m_Shader(shaders),m_DescriptorSetBindings(descriptor_set_bindings),m_Set(sets),m_Layout(layout) ,m_Device(device),m_ShaderStages(0)
+	,m_MaxBindlessBindingCount(maxBindlessBindingCount), m_IsBindless(isBindless)
 	{
 		for (auto shader : shaders) 
 		{
@@ -190,6 +193,16 @@ namespace gvk {
 		return m_ShaderStages;
 	}
 
+	uint32_t DescriptorSetLayout::GetMaxBindlessDescriptorSetCount()
+	{
+		return m_MaxBindlessBindingCount;
+	}
+
+	bool DescriptorSetLayout::IsBindless()
+	{
+		return m_IsBindless;
+	}
+
 	DescriptorSetLayout::~DescriptorSetLayout()
 	{
 		vkDestroyDescriptorSetLayout(m_Device, m_Layout, nullptr);
@@ -203,7 +216,7 @@ namespace gvk {
 		return false;
 	}
 
-	opt<ptr<DescriptorSetLayout>> Context::CreateDescriptorSetLayout(const std::vector<ptr<Shader>>& target_shaders, uint32 target_set,std::string* error)
+	opt<ptr<DescriptorSetLayout>> Context::CreateDescriptorSetLayout(const std::vector<ptr<Shader>>& target_shaders, uint32 target_set,std::string* error, uint32_t max_bindless_descriptor_cnt)
 	{
 		std::vector<SpvReflectDescriptorBinding*> bindings;
 		std::vector<VkShaderStageFlags> binding_stage_flags;
@@ -301,6 +314,8 @@ namespace gvk {
 			}
 		}
 		
+		std::vector<VkDescriptorBindingFlags> bindingFlags(bindings.size());
+		bool bindingFlagSet = false;
 
 		VkDescriptorSetLayoutCreateInfo info{};
 		info.bindingCount = bindings.size();
@@ -314,10 +329,26 @@ namespace gvk {
 			//TODO : currently we don't support immutable samplers
 			vk_bindings[i].pImmutableSamplers = NULL;
 			vk_bindings[i].stageFlags = binding_stage_flags[i];
-			vk_bindings[i].descriptorCount = bindings[i]->count;
+			if (bindings[i]->count != 0)
+			{
+				vk_bindings[i].descriptorCount = bindings[i]->count;
+			}
+			else
+			{
+				vk_bindings[i].descriptorCount = max_bindless_descriptor_cnt;
+				info.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
+				bindingFlags[i] = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+				bindingFlagSet = true;
+			}
 		}
+
+		VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extFlagCI{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT };
+		extFlagCI.bindingCount = bindingFlags.size();
+		extFlagCI.pBindingFlags = bindingFlags.data();
+
+
 		info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		info.pNext = NULL;
+		info.pNext = bindingFlagSet ? &extFlagCI : NULL;
 		info.pBindings = vk_bindings.data();
 		VkDescriptorSetLayout layout;
 		VkResult rs = vkCreateDescriptorSetLayout(m_Device, &info, nullptr, &layout);
@@ -327,7 +358,7 @@ namespace gvk {
 			return std::nullopt;
 		}
 
-		return ptr<DescriptorSetLayout>(new DescriptorSetLayout(layout, target_shaders, bindings, target_set,m_Device));	
+		return ptr<DescriptorSetLayout>(new DescriptorSetLayout(layout, target_shaders, bindings, target_set,m_Device, max_bindless_descriptor_cnt, bindingFlagSet));
 	}
 
 
@@ -531,7 +562,7 @@ namespace gvk {
 		vk_create_info.pStages = shader_stage_infos.data();
 		vk_create_info.stageCount = shader_stage_infos.size();
 
-		DescriptorLayoutInfoHelper descriptor_helper(info.descriptor_layuot_hint, *this);
+		DescriptorLayoutInfoHelper descriptor_helper(info.descriptor_layuot_hint, *this, info.max_bindless_binding_count);
 		if (!mesh_shader_enabled) 
 		{
 			if (!descriptor_helper.CollectDescriptorLayoutInfo(info.vertex_shader))
@@ -632,7 +663,7 @@ namespace gvk {
 		create_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 		create_info.stage.pName = info.shader->GetEntryPointName();
 		
-		DescriptorLayoutInfoHelper helper(info.descriptor_layuot_hint, *this);
+		DescriptorLayoutInfoHelper helper(info.descriptor_layuot_hint, *this, info.max_bindless_binding_count);
 		if (!helper.CollectDescriptorLayoutInfo(info.shader)) 
 		{
 			return std::nullopt;
@@ -695,7 +726,7 @@ namespace gvk {
 		};
 
 		GvkDescriptorLayoutHint nullHint;
-		DescriptorLayoutInfoHelper helper(nullHint, *this);
+		DescriptorLayoutInfoHelper helper(nullHint, *this, create_info.maxBindlessBindingCount);
 
 		uint32_t rayGenCount = 0;
 		uint32_t missCount = 0;
@@ -1071,16 +1102,26 @@ namespace gvk {
 	DescriptorSet::~DescriptorSet()
 	{
 		//descriptor set will be released automatically when descriptor pool is released
+		if (m_Layout->IsBindless())
+		{
+			m_Alloc->OnBindlessDescriptorSetDestroy(m_Set);
+		}
 	}
 
-	DescriptorSet::DescriptorSet(VkDevice device, VkDescriptorSet set, ptr<DescriptorSetLayout> layout)
-		:m_Device(device),m_Set(set),m_Layout(layout)
+	DescriptorSet::DescriptorSet(VkDevice device, VkDescriptorSet set, ptr<DescriptorSetLayout> layout, DescriptorAllocator* alloc)
+		:m_Device(device),m_Set(set),m_Layout(layout),m_Alloc(alloc)
 	{}
 
 	opt<ptr<gvk::DescriptorSet>> DescriptorAllocator::Allocate(ptr<DescriptorSetLayout> layout)
 	{
-		//collect descriptor informations
 		auto bindings = layout->GetDescriptorSetBindings();
+		//check if this layout contains a bindless binding
+		if (layout->IsBindless())
+		{
+			return AllocateBindless(layout);
+		}
+
+		//collect descriptor informations
 		for (uint32 i = 0;i < bindings.size();i++) 
 		{
 			VkDescriptorPoolSize* poolSize = nullptr;
@@ -1126,7 +1167,7 @@ namespace gvk {
 			gvk_assert(vkrs == VK_SUCCESS);
 		}
 
-		return ptr<DescriptorSet>(new DescriptorSet(m_Device, set, layout));
+		return ptr<DescriptorSet>( new DescriptorSet(m_Device, set, layout, this));
 	}
 
 	ptr<gvk::DescriptorAllocator> Context::CreateDescriptorAllocator()
@@ -1179,6 +1220,97 @@ namespace gvk {
 		auto pool = CreatePool();
 		gvk_assert(pool.has_value());
 		m_CurrentDescriptorPool = pool.value();
+	}
+
+	void DescriptorAllocator::OnBindlessDescriptorSetDestroy(VkDescriptorSet set)
+	{
+		if (auto var = std::find( m_AllocatedBindlessSet.begin(), m_AllocatedBindlessSet.end(), set) ;var != m_AllocatedBindlessSet.end())
+		{
+			uint32_t idx = var - m_AllocatedBindlessSet.begin();
+			vkDestroyDescriptorPool(m_Device, m_AllocatedBindlessPool[idx], NULL);
+
+			m_AllocatedBindlessSet.erase(var);
+			m_AllocatedBindlessPool.erase(m_AllocatedBindlessPool.begin() + idx);
+		}
+		else
+		{
+			gvk_assert(false);
+		}
+
+	}
+
+	opt<ptr<DescriptorSet>> DescriptorAllocator::AllocateBindless(ptr<DescriptorSetLayout> layout)
+	{
+		uint32_t descriptorCount[10] = { 0 };
+		uint32_t asDescriptorCount = 0;
+		auto bindings = layout->GetDescriptorSetBindings();
+		uint32_t maxBinding = 0;
+
+		for (uint32_t i = 0;i < bindings.size();i++)
+		{
+			uint32_t highestBindingIdx = bindings[i]->binding + (bindings[i]->count == 0 ? layout->GetMaxBindlessDescriptorSetCount() : 
+				bindings[i]->count) - 1;
+
+			maxBinding = max(maxBinding, highestBindingIdx);
+
+			if (bindings[i]->descriptor_type < 10)
+			{
+				descriptorCount[bindings[i]->descriptor_type] += bindings[i]->count == 0 ? layout->GetMaxBindlessDescriptorSetCount() : bindings[i]->count;
+			}
+			else if(bindings[i]->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+			{
+				asDescriptorCount += bindings[i]->count;
+			}
+		}
+
+
+		std::vector<VkDescriptorPoolSize> poolSizes;
+		for (uint32_t i = 0;i < 10;i++)
+		{
+			if (descriptorCount[i] != 0)
+			{
+				poolSizes.push_back({ (VkDescriptorType)i, descriptorCount[i] });
+			}
+		}
+		if (asDescriptorCount != 0) poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, asDescriptorCount});
+
+		VkDescriptorPoolCreateInfo info{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+		info.poolSizeCount = poolSizes.size();
+		info.pPoolSizes = poolSizes.data();
+		info.maxSets = 1;
+		info.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
+
+		VkDescriptorPool bindlessDescPool;
+		if (vkCreateDescriptorPool(m_Device, &info, NULL, &bindlessDescPool) != VK_SUCCESS) 
+		{
+			return std::nullopt;
+		}
+
+		VkDescriptorSetLayout layouts[] = { layout->GetLayout() };
+
+		VkDescriptorSetAllocateInfo alloc_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		alloc_info.descriptorPool = bindlessDescPool;
+		alloc_info.descriptorSetCount = 1;
+		alloc_info.pSetLayouts = layouts;
+
+		VkDescriptorSetVariableDescriptorCountAllocateInfoEXT count_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT };
+		uint32_t max_binding = maxBinding;
+		count_info.descriptorSetCount = 1;
+		// This number is the max allocatable count
+		count_info.pDescriptorCounts = &max_binding;
+		alloc_info.pNext = &count_info;
+
+		VkDescriptorSet bindlessDescriptorSet;
+		if (vkAllocateDescriptorSets(m_Device, &alloc_info, &bindlessDescriptorSet) != VK_SUCCESS)
+		{
+			vkDestroyDescriptorPool(m_Device, bindlessDescPool, NULL);
+			return std::nullopt;
+		}
+
+		m_AllocatedBindlessPool.push_back(bindlessDescPool);
+		m_AllocatedBindlessSet.push_back(bindlessDescriptorSet);
+
+		return ptr<DescriptorSet>(new DescriptorSet(m_Device, bindlessDescriptorSet, layout, this));
 	}
 
 	opt<VkDescriptorPool> DescriptorAllocator::CreatePool()

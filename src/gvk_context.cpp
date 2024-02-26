@@ -1272,10 +1272,16 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		atomicInt64.feature.shaderBufferInt64Atomics = 1;
 		atomicInt64.feature.shaderSharedInt64Atomics = 1;
 		break;
+	case GVK_DEVICE_EXTENSION_BINDLESS_IMAGE:
+		EnableFeature(this, descriptorIndexingFeatures);
+		descriptorIndexingFeatures.feature.descriptorBindingPartiallyBound = true;
+		descriptorIndexingFeatures.feature.runtimeDescriptorArray = true;
+		break;
 	default:
 		gvk_assert(false);
 		break;
 	}
+
 	return *this;
 }
 

@@ -54,7 +54,7 @@ void TestShader(const char* shader_file)
 	for (auto& set : sets) {
 		std::cout << "\tset=" << set->set << " binding count=" << set->binding_count << std::endl;
 		for (gvk::uint32 i = 0; i < set->binding_count; i++) {
-			std::cout << "\t\tbinding=" << set->bindings[i]->binding << " name=" << set->bindings[i]->name << " type=" << set->bindings[i]->resource_type << std::endl;
+			std::cout << "\t\tbinding=" << set->bindings[i]->binding << " name=" << set->bindings[i]->name << " type=" << set->bindings[i]->resource_type << " count=" << set->bindings[i]->count << std::endl;
 			PrintMember(set->bindings[i]->type_description, "");
 		}
 	}
@@ -76,7 +76,7 @@ void TestShader(const char* shader_file)
 
 
 int main() {
-	const char* shaders[] = {"geom.geom","vert.vert","compute.comp", "mesh.mesh", "mesh.task"};
+	const char* shaders[] = {"geom.geom","vert.vert","compute.comp", "mesh.mesh", "mesh.task", "frag.frag"};
 
 	for (int i = 0;i < gvk_count_of(shaders);i++)
 	{
