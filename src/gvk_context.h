@@ -112,6 +112,7 @@ struct GvkInstanceCreateInfo
 struct GvkSamplerCreateInfo : public VkSamplerCreateInfo 
 {
 	GvkSamplerCreateInfo(VkFilter magFilter,VkFilter minFilter,VkSamplerMipmapMode mode);
+	GvkSamplerCreateInfo();
 };
 
 namespace gvk 
