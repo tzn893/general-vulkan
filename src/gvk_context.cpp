@@ -1276,6 +1276,7 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		EnableFeature(this, descriptorIndexingFeatures);
 		descriptorIndexingFeatures.feature.descriptorBindingPartiallyBound = true;
 		descriptorIndexingFeatures.feature.runtimeDescriptorArray = true;
+		descriptorIndexingFeatures.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
 		break;
 	default:
 		gvk_assert(false);
