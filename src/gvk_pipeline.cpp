@@ -10,7 +10,7 @@ namespace gvk {
 	struct DescriptorLayoutInfoHelper
 	{
 		DescriptorLayoutInfoHelper(const GvkDescriptorLayoutHint& hint,Context& context, uint32_t maxBindlessBindingCount) 
-		:context(context),hint(hint) {
+		:context(context),hint(hint),maxBindlessBindingCount(maxBindlessBindingCount) {
 			layout_included.resize(hint.precluded_descriptor_layouts.size());
 		}
 
@@ -1392,7 +1392,7 @@ GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::FrameBufferBlendState(cons
 
 GvkGraphicsPipelineCreateInfo::FrameBufferBlendState& GvkGraphicsPipelineCreateInfo::FrameBufferBlendState::operator=(const FrameBufferBlendState& state)
 {
-	// TODO: ÔÚ´Ë´¦²åÈë return Óï¾ä
+	// TODO: ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½ return ï¿½ï¿½ï¿½
 	frame_buffer_states = state.frame_buffer_states;
 	create_info = state.create_info;
 
