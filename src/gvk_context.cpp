@@ -1271,6 +1271,7 @@ GvkDeviceCreateInfo& GvkDeviceCreateInfo::AddDeviceExtension(GVK_DEVICE_EXTENSIO
 		atomicInt64.feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES;
 		atomicInt64.feature.shaderBufferInt64Atomics = 1;
 		atomicInt64.feature.shaderSharedInt64Atomics = 1;
+		required_features.shaderInt64 = 1;
 		break;
 	case GVK_DEVICE_EXTENSION_BINDLESS_IMAGE:
 		EnableFeature(this, descriptorIndexingFeatures);
